@@ -1,0 +1,70 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    font-family: 'Arial', sans-serif;
+    background: #000;
+}
+
+canvas {
+    display: block;
+}
+
+#info {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 20px;
+    border-radius: 10px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#info h1 {
+    margin: 0 0 10px 0;
+    font-size: 24px;
+    background: linear-gradient(45deg, #ffd700, #ff6b35);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+#info p {
+    margin: 0 0 15px 0;
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+#controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#controls label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+}
+
+#controls input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+}
+
+#controls input[type="range"] {
+    flex: 1;
+}
+
+.planet-label {
+    position: absolute;
+    color: #fff;
+    font-size: 12px;
+    text-shadow: 0 0 5px rgba(0, 0, 0, 0.8);
+    pointer-events: none;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 2px 6px;
+    border-radius: 3px;
+}
