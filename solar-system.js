@@ -9,6 +9,9 @@ let labels = [];
 let time = 0;
 let speedMultiplier = 1;
 let comet = null;
+let cameraMode = 'free';
+let cameraTarget = null;
+let cameraTransition = { active: false, startTime: 0, duration: 2000, from: null, to: null };
 let cometData = {
     // 実際のハレー彗星のパラメータ（スケール調整済み）
     eccentricity: 0.967,  // 実際の離心率
@@ -1008,6 +1011,11 @@ function setupEventListeners() {
             speedValue.textContent = `${speedMultiplier.toFixed(1)}x`;
         }
     });
+    
+    // Camera view switching
+    document.getElementById('camera-view').addEventListener('change', (e) => {
+        switchCameraView(e.target.value);
+    });
 }
 
 function updateParticles() {
@@ -1207,6 +1215,142 @@ function onWindowResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
+function switchCameraView(mode) {
+    cameraMode = mode;
+    
+    if (mode === 'free') {
+        cameraTarget = null;
+        controls.enabled = true;
+        startCameraTransition(null);
+    } else {
+        controls.enabled = false;
+        
+        // Find the target object
+        if (mode === 'sun') {
+            cameraTarget = sun;
+        } else if (mode === 'comet') {
+            cameraTarget = comet ? comet.group : null;
+        } else {
+            const planet = planets.find(p => p.data.name.toLowerCase() === mode);
+            cameraTarget = planet ? planet.group : null;
+        }
+        
+        if (cameraTarget) {
+            startCameraTransition(cameraTarget);
+        }
+    }
+}
+
+function startCameraTransition(target) {
+    cameraTransition.active = true;
+    cameraTransition.startTime = Date.now();
+    cameraTransition.from = {
+        position: camera.position.clone(),
+        rotation: camera.rotation.clone()
+    };
+    
+    if (target) {
+        const targetPos = new THREE.Vector3();
+        target.getWorldPosition(targetPos);
+        
+        // Calculate camera position relative to target
+        const distance = cameraMode === 'sun' ? 200 : 50;
+        const offset = new THREE.Vector3(distance, distance * 0.5, distance);
+        
+        cameraTransition.to = {
+            position: targetPos.clone().add(offset),
+            lookAt: targetPos
+        };
+    } else {
+        // Return to free camera position
+        cameraTransition.to = {
+            position: new THREE.Vector3(0, 200, 400),
+            lookAt: new THREE.Vector3(0, 0, 0)
+        };
+    }
+}
+
+function updateCameraPosition() {
+    if (cameraMode === 'free' || !cameraTarget) return;
+    
+    const targetPos = new THREE.Vector3();
+    cameraTarget.getWorldPosition(targetPos);
+    
+    if (cameraTransition.active) {
+        // Handle smooth transition
+        const elapsed = Date.now() - cameraTransition.startTime;
+        const progress = Math.min(elapsed / cameraTransition.duration, 1);
+        const easeProgress = 1 - Math.pow(1 - progress, 3); // Ease out cubic
+        
+        if (progress >= 1) {
+            cameraTransition.active = false;
+        }
+        
+        // Interpolate position
+        if (cameraTransition.from && cameraTransition.to) {
+            camera.position.lerpVectors(
+                cameraTransition.from.position,
+                cameraTransition.to.position,
+                easeProgress
+            );
+            
+            // Look at target
+            const lookAtPos = cameraTransition.to.lookAt.clone();
+            if (cameraMode !== 'free') {
+                lookAtPos.lerp(targetPos, easeProgress);
+            }
+            camera.lookAt(lookAtPos);
+        }
+    } else {
+        // Follow mode - camera follows the target
+        const distance = cameraMode === 'sun' ? 200 : 50;
+        const angle = Date.now() * 0.0001; // Slow rotation around target
+        
+        // Calculate offset based on target type
+        let offset;
+        if (cameraMode === 'comet') {
+            // For comet, position camera behind and above relative to its motion
+            const velocity = new THREE.Vector3();
+            if (comet && comet.previousPosition) {
+                velocity.subVectors(targetPos, comet.previousPosition).normalize();
+            } else {
+                velocity.set(1, 0, 0);
+            }
+            
+            offset = velocity.multiplyScalar(-distance);
+            offset.y = distance * 0.3;
+        } else if (cameraMode === 'sun') {
+            // Orbit around sun
+            offset = new THREE.Vector3(
+                Math.cos(angle) * distance,
+                distance * 0.5,
+                Math.sin(angle) * distance
+            );
+        } else {
+            // For planets, position camera to see orbital motion
+            const planet = planets.find(p => p.data.name.toLowerCase() === cameraMode);
+            if (planet) {
+                const orbitAngle = planet.angle - Math.PI / 4; // Slightly behind
+                offset = new THREE.Vector3(
+                    Math.cos(orbitAngle) * distance,
+                    distance * 0.4,
+                    Math.sin(orbitAngle) * distance
+                );
+            } else {
+                offset = new THREE.Vector3(distance, distance * 0.5, distance);
+            }
+        }
+        
+        camera.position.copy(targetPos).add(offset);
+        camera.lookAt(targetPos);
+    }
+    
+    // Store previous position for velocity calculation
+    if (cameraMode === 'comet' && comet) {
+        comet.previousPosition = targetPos.clone();
+    }
+}
+
 function animate() {
     requestAnimationFrame(animate);
     
@@ -1246,8 +1390,12 @@ function animate() {
     updateParticles();
     updateTrails();
     updateLabels();
+    updateCameraPosition();
     
-    controls.update();
+    if (cameraMode === 'free') {
+        controls.update();
+    }
+    
     renderer.render(scene, camera);
 }
 
