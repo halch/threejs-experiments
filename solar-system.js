@@ -9,6 +9,7 @@ let labels = [];
 let time = 0;
 let speedMultiplier = 1;
 let comet = null;
+let asteroidBelt = null;
 let cameraMode = 'free';
 let cameraTarget = null;
 let cameraTransition = { active: false, startTime: 0, duration: 2000, from: null, to: null };
@@ -237,6 +238,7 @@ function init() {
     createStarfield();
     createSun();
     createPlanets();
+    createAsteroidBelt();
     createComet();
     createLights();
     
@@ -803,6 +805,134 @@ function createLights() {
     scene.add(sunLight);
 }
 
+function createAsteroidBelt() {
+    // 小惑星帯のパラメータ
+    const asteroidCount = 3000;
+    const innerRadius = 170;  // 火星の軌道の外側
+    const outerRadius = 210;  // 木星の軌道の内側
+    const thickness = 20;     // 垂直方向の厚さ
+    
+    // 小惑星のジオメトリとマテリアルを作成
+    const asteroidGeometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(asteroidCount * 3);
+    const colors = new Float32Array(asteroidCount * 3);
+    const sizes = new Float32Array(asteroidCount);
+    const velocities = new Float32Array(asteroidCount * 3);
+    const initialAngles = new Float32Array(asteroidCount);
+    
+    for (let i = 0; i < asteroidCount; i++) {
+        // 距離を決定（内側ほど密度が高い）
+        const radiusVariance = Math.random();
+        const radius = innerRadius + (outerRadius - innerRadius) * Math.pow(radiusVariance, 0.7);
+        
+        // 初期角度
+        const angle = Math.random() * Math.PI * 2;
+        initialAngles[i] = angle;
+        
+        // 位置
+        positions[i * 3] = Math.cos(angle) * radius;
+        positions[i * 3 + 1] = (Math.random() - 0.5) * thickness;
+        positions[i * 3 + 2] = Math.sin(angle) * radius;
+        
+        // 色（グレーから茶色の範囲）
+        const colorVariance = Math.random();
+        if (colorVariance < 0.7) {
+            // グレー系（岩石質）
+            const gray = 0.4 + Math.random() * 0.3;
+            colors[i * 3] = gray;
+            colors[i * 3 + 1] = gray;
+            colors[i * 3 + 2] = gray;
+        } else {
+            // 茶色系（鉄分を含む）
+            colors[i * 3] = 0.5 + Math.random() * 0.3;
+            colors[i * 3 + 1] = 0.3 + Math.random() * 0.2;
+            colors[i * 3 + 2] = 0.2 + Math.random() * 0.1;
+        }
+        
+        // サイズ（べき乗分布で、小さいものが多い）
+        sizes[i] = Math.pow(Math.random(), 3) * 2 + 0.5;
+        
+        // 公転速度（ケプラーの第三法則に基づく）
+        const orbitalSpeed = 0.008 / Math.sqrt(radius / 150);  // 地球の軌道を基準
+        velocities[i * 3] = orbitalSpeed;
+        velocities[i * 3 + 1] = radius;  // 軌道半径を保存
+        velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.0001;  // 軌道傾斜の変化
+    }
+    
+    asteroidGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    asteroidGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    asteroidGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+    
+    // カスタムシェーダーマテリアル
+    const asteroidMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            time: { value: 0 }
+        },
+        vertexShader: `
+            attribute float size;
+            attribute vec3 color;
+            varying vec3 vColor;
+            
+            void main() {
+                vColor = color;
+                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                gl_PointSize = size * (300.0 / -mvPosition.z);
+                gl_Position = projectionMatrix * mvPosition;
+            }
+        `,
+        fragmentShader: `
+            varying vec3 vColor;
+            
+            void main() {
+                float dist = length(gl_PointCoord - vec2(0.5));
+                if (dist > 0.5) discard;
+                
+                float opacity = 1.0 - smoothstep(0.3, 0.5, dist);
+                gl_FragColor = vec4(vColor, opacity);
+            }
+        `,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+    });
+    
+    const asteroidPoints = new THREE.Points(asteroidGeometry, asteroidMaterial);
+    scene.add(asteroidPoints);
+    
+    // 小惑星帯の軌道パスを作成（視覚的なガイド）
+    const orbitCurve = new THREE.EllipseCurve(
+        0, 0,
+        (innerRadius + outerRadius) / 2,
+        (innerRadius + outerRadius) / 2,
+        0, 2 * Math.PI,
+        false,
+        0
+    );
+    
+    const orbitPoints = orbitCurve.getPoints(100);
+    const orbitGeometry = new THREE.BufferGeometry().setFromPoints(orbitPoints);
+    const orbitMaterial = new THREE.LineBasicMaterial({
+        color: 0x666666,
+        opacity: 0.3,
+        transparent: true
+    });
+    
+    const orbitLine = new THREE.Line(orbitGeometry, orbitMaterial);
+    orbitLine.rotation.x = Math.PI / 2;
+    scene.add(orbitLine);
+    orbits.push(orbitLine);
+    
+    // 小惑星帯データを保存
+    asteroidBelt = {
+        points: asteroidPoints,
+        geometry: asteroidGeometry,
+        material: asteroidMaterial,
+        velocities: velocities,
+        initialAngles: initialAngles,
+        count: asteroidCount
+    };
+}
+
 function createComet() {
     // 彗星のグループ
     const cometGroup = new THREE.Group();
@@ -1053,6 +1183,12 @@ function setupEventListeners() {
     // 既存のイベントリスナー
     document.getElementById('showOrbits').addEventListener('change', (e) => {
         orbits.forEach(orbit => orbit.visible = e.target.checked);
+    });
+    
+    document.getElementById('showAsteroids').addEventListener('change', (e) => {
+        if (asteroidBelt) {
+            asteroidBelt.points.visible = e.target.checked;
+        }
     });
     
     document.getElementById('speed').addEventListener('input', (e) => {
@@ -1412,6 +1548,35 @@ function updatePlanetInfo() {
     }
 }
 
+function updateAsteroidBelt() {
+    const positions = asteroidBelt.geometry.attributes.position.array;
+    const velocities = asteroidBelt.velocities;
+    const initialAngles = asteroidBelt.initialAngles;
+    
+    for (let i = 0; i < asteroidBelt.count; i++) {
+        // 各小惑星の公転角度を更新
+        const orbitalSpeed = velocities[i * 3];
+        const radius = velocities[i * 3 + 1];
+        const verticalVariation = velocities[i * 3 + 2];
+        
+        // 現在の角度を計算
+        const currentAngle = initialAngles[i] + time * orbitalSpeed * speedMultiplier;
+        
+        // 新しい位置を計算
+        positions[i * 3] = Math.cos(currentAngle) * radius;
+        positions[i * 3 + 2] = Math.sin(currentAngle) * radius;
+        
+        // 垂直方向の微小な変動を追加（リアリズムのため）
+        positions[i * 3 + 1] += Math.sin(currentAngle * 5) * verticalVariation;
+    }
+    
+    // ジオメトリの更新を通知
+    asteroidBelt.geometry.attributes.position.needsUpdate = true;
+    
+    // シェーダーの時間を更新（将来の効果のため）
+    asteroidBelt.material.uniforms.time.value = time;
+}
+
 function updateCameraPosition() {
     if (cameraMode === 'free' || !cameraTarget) return;
     
@@ -1527,6 +1692,11 @@ function animate() {
     // 彗星のアニメーション
     if (comet) {
         updateComet();
+    }
+    
+    // 小惑星帯のアニメーション
+    if (asteroidBelt) {
+        updateAsteroidBelt();
     }
     
     updateParticles();
