@@ -1,92 +1,66 @@
-# Solar System Explorer
+# Solar System Explorer 🌌
 
-An interactive 3D solar system simulation built with Three.js, featuring realistic planetary motion, dynamic particle effects, and modern UI design.
+An advanced interactive 3D solar system simulation with realistic physics, immersive audio, and stunning visual effects. Experience space exploration like never before!
 
 <p align="center">
   <img src="screenshots/main-view.png" alt="Solar System Explorer" width="100%">
 </p>
 
 <p align="center">
-  <a href="#key-highlights">Highlights</a> •
-  <a href="#screenshots">Screenshots</a> •
-  <a href="#features">Features</a> •
-  <a href="#quick-start">Quick Start</a> •
-  <a href="#technical-details">Technical Details</a>
+  <a href="#-key-features">Features</a> •
+  <a href="#-whats-new">What's New</a> •
+  <a href="#-quick-start">Quick Start</a> •
+  <a href="#-controls">Controls</a> •
+  <a href="#-screenshots">Screenshots</a> •
+  <a href="#-technical-details">Technical</a>
 </p>
 
 ---
 
-## Key Highlights
+## 🌟 Key Features
 
-- 🌞 **Realistic Sun** with dynamic plasma effects and corona
-- 🪐 **All 8 Planets** with procedurally generated textures
-- 🌙 **Moons** including Earth's Moon and Jupiter's Galilean moons
-- 💫 **35,000+ Stars** with realistic colors and Milky Way effect
-- 🎮 **Smooth Controls** with zoom limits and intuitive navigation
-- 📱 **Responsive Design** that works on all devices
+### Visual Effects
+- 🌞 **Dynamic Sun** - Multi-layered shaders with plasma ejections and corona loops
+- 🪐 **All 8 Planets** - With atmospheric effects for Earth, Venus, and Mars
+- ☄️ **Halley's Comet** - Realistic orbital mechanics with dynamic tail effects
+- 🌌 **35,000+ Stars** - Multi-layered starfield with Milky Way effect
+- 💫 **Asteroid Belt** - 3,000 asteroids between Mars and Jupiter
+- 🌍 **Atmospheric Effects** - Blue glow for Earth, thick clouds for Venus
+
+### Interactive Features
+- 🚀 **First-Person Camera** - Ride along with any planet or comet
+- 🗺️ **Real-time Minimap** - Click to navigate anywhere in the solar system
+- 📸 **Photo Mode** - Hide UI and apply filters for perfect screenshots
+- 🔊 **Immersive Audio** - Outer Wilds-inspired ambient soundscape
+- 📅 **Time Controls** - See planetary positions at any date
+- 📊 **Planet Info Panel** - Real-time data about selected celestial bodies
+
+## 🎉 What's New
+
+### Latest Features
+- **Atmospheric Effects** - Realistic atmospheres with rim lighting
+- **Photo Mode** - Professional screenshot capabilities with filters
+- **Ambient Audio** - Three-layer soundscape inspired by Outer Wilds
+- **Minimap Navigation** - Top-down view with clickable navigation
+- **Time Simulation** - Track real dates and jump forward in time
+- **Planet Information** - Detailed facts and real-time statistics
 
 ## Screenshots
 
-### Different Viewing Modes
+### Immersive Views
 
 <p align="center">
-  <img src="screenshots/full-ui.png" width="48%" alt="Full UI with Labels and Orbits">
-  <img src="screenshots/clean-view.png" width="48%" alt="Clean View without UI Elements">
+  <img src="screenshots/full-ui.png" width="48%" alt="Full Interface">
+  <img src="screenshots/clean-view.png" width="48%" alt="Clean View">
 </p>
 
 <p align="center">
-  <em>Left: Full interface with planet labels and orbital paths | Right: Clean view for an immersive experience</em>
+  <em>Experience the solar system with full controls or minimal UI</em>
 </p>
 
-## Features
+## 🚀 Quick Start
 
-### 🌟 Visual Effects
-- **Dynamic Sun**
-  - Multi-layered WebGL shaders for realistic solar surface
-  - Dynamic plasma ejection particle system
-  - Corona loops and solar flares
-  - Real-time surface animation
-
-- **Planetary System**
-  - All 8 planets with accurate relative sizes
-  - Procedurally generated textures for each planet
-  - Earth's moon and Jupiter's major moons
-  - Saturn's majestic ring system
-  - Orbital trails for visual tracking
-
-- **Space Environment**
-  - Multi-layered starfield with 35,000+ stars
-  - Varied star colors and sizes
-  - Milky Way effect
-  - Depth-based rendering
-
-### 🎮 Interactive Controls
-- **Mouse Controls**
-  - Left Click + Drag: Rotate view
-  - Scroll: Zoom in/out
-  - Right Click + Drag: Pan camera
-  
-- **UI Controls**
-  - Toggle orbital paths visibility
-  - Toggle planet labels
-  - Adjustable simulation speed (0-10x)
-  - Modern, responsive interface
-
-### 🎨 Modern Design
-- **Typography**
-  - Google Fonts integration (Orbitron & Space Grotesk)
-  - Responsive text sizing
-  - Distance-based label scaling
-
-- **UI/UX**
-  - Glassmorphism effects
-  - Gradient backgrounds
-  - Smooth animations
-  - Mobile-responsive design
-
-## Quick Start
-
-### Using Vite (Recommended)
+### Installation
 
 1. Clone the repository
 ```bash
@@ -104,111 +78,149 @@ npm install
 npm run dev
 ```
 
-4. Open your browser and navigate to `http://localhost:5173`
+4. Open `http://localhost:5173` in your browser
 
-### Using Python HTTP Server
+## 🎮 Controls
 
-```bash
-python3 -m http.server 8000
-# Then open http://localhost:8000
-```
+### Navigation
+| Control | Action |
+|---------|--------|
+| **Left Mouse** | Rotate camera |
+| **Scroll** | Zoom in/out |
+| **Right Mouse** | Pan camera |
+| **Minimap Click** | Jump to location |
 
-## Project Structure
+### Keyboard Shortcuts
+| Key | Action |
+|-----|--------|
+| **P** | Take screenshot (in Photo Mode) |
+| **ESC** | Exit Photo Mode |
+
+### Camera Modes
+- **Free Camera** - Full control of camera movement
+- **Planet Ride** - Follow any planet in its orbit
+- **Comet Ride** - Chase Halley's Comet through space
+- **Solar Orbit** - Circle around the Sun
+
+### UI Controls
+- ✅ **Show Orbits** - Toggle orbital paths
+- ✅ **Show Labels** - Toggle planet names
+- ✅ **Show Asteroids** - Toggle asteroid belt
+- 🔊 **Enable Sound** - Toggle ambient audio
+- 🎚️ **Speed Control** - Adjust time from 0-10x
+- 📅 **Time Jump** - Skip ahead by months or years
+- 📸 **Photo Mode** - Professional screenshot mode
+
+## 📊 Technical Details
+
+### Technologies
+- **Three.js** - Advanced 3D graphics with WebGL
+- **Web Audio API** - Real-time audio synthesis
+- **Custom Shaders** - GLSL shaders for visual effects
+- **Vite** - Lightning-fast development environment
+
+### Advanced Features
+
+#### 🌟 Visual Systems
+- **Multi-layered Rendering**
+  - Sun with 4 shader layers
+  - 35,000+ stars in 3 depth layers
+  - Dynamic particle systems
+  
+- **Atmospheric Shaders**
+  - Rim lighting effects
+  - Real-time cloud generation
+  - Distance-based opacity
+
+#### 🎵 Audio System
+- **Three-Layer Soundscape**
+  - Deep space ambience (50-880Hz)
+  - Solar wind (pink noise)
+  - Planetary resonance (pentatonic scale)
+  
+- **Dynamic Audio**
+  - Distance-based volume
+  - Proximity effects
+  - 4-second reverb
+
+#### ⚡ Performance
+- **Optimizations**
+  - Instanced rendering for asteroids
+  - LOD system for stars
+  - Efficient particle recycling
+  - Smart label updates
+
+### Project Structure
 
 ```
 threejs-experiments/
-├── index.html              # Main HTML with modern UI
-├── solar-system.js         # Three.js application logic
-├── solar-style.css         # Modern CSS styling
-├── capture.js              # Puppeteer screenshot utility
-├── package.json            # Project dependencies
-├── vite.config.js          # Vite configuration
-└── screenshots/            # Application screenshots
+├── index.html              # Modern UI with glassmorphism
+├── solar-system.js         # Core simulation (2600+ lines)
+├── solar-style.css         # Advanced styling with animations
+├── capture.js              # Screenshot automation
+├── package.json            # Dependencies
+├── vite.config.js          # Build configuration
+└── screenshots/            # Sample images
 ```
 
-## Technical Details
+## 🛠️ Development
 
-### Technologies Used
-- **Three.js** - 3D graphics library
-- **WebGL Shaders** - Custom shaders for sun effects
-- **OrbitControls** - Camera control system
-- **Vite** - Build tool and dev server
-- **Puppeteer** - Automated screenshot generation
+### Customization
 
-### Key Features Implementation
+```javascript
+// Add new planets
+const planetData = [{
+  name: 'YourPlanet',
+  radius: 10,
+  distance: 500,
+  color: 0xff0000,
+  // ... more properties
+}];
 
-#### Dynamic Particle System
-- Real-time particle generation and recycling
-- Phase-based animation for natural movement
-- Distance-based opacity for depth perception
-- Custom circular gradient textures
+// Adjust audio volume
+audioNodes.ambient.gains[3].gain.value = 0.1;
 
-#### Planetary Textures
-- Procedurally generated textures for each planet
-- Earth: Continents, oceans, and cloud coverage
-- Jupiter: Banded atmosphere with Great Red Spot
-- Mars: Polar ice caps and surface features
-
-#### Performance Optimizations
-- Efficient particle recycling system
-- Distance-based label updates
-- Depth buffer optimization
-- Level-of-detail star rendering
-
-## Browser Requirements
-
-- Modern web browser (Chrome, Firefox, Safari, Edge)
-- WebGL 2.0 support
-- Hardware acceleration enabled
-- Recommended: Dedicated graphics card
-
-## Development
-
-### Adding New Features
-1. Planets can be added/modified in the `planetData` array
-2. Particle effects can be customized in `createSunParticles()`
-3. UI styling can be modified in `solar-style.css`
+// Change particle count
+const asteroidCount = 5000; // Default: 3000
+```
 
 ### Building for Production
+
 ```bash
 npm run build
+npm run preview
 ```
 
-### Generating Screenshots
-The project includes a Puppeteer script for automated screenshot generation:
+## 🖥️ System Requirements
 
-```bash
-# Basic usage
-node capture.js [filename] [wait-time-ms]
+### Minimum
+- Modern browser with WebGL 2.0
+- 4GB RAM
+- Integrated graphics
 
-# Examples
-node capture.js main-view 3000
-node capture.js clean-view 2000
-```
+### Recommended
+- Chrome/Firefox latest
+- 8GB RAM
+- Dedicated GPU
+- Hardware acceleration enabled
 
-## Controls Reference
+## 🤝 Contributing
 
-| Control | Action |
-|---------|--------|
-| Left Mouse | Rotate camera |
-| Scroll Wheel | Zoom in/out |
-| Right Mouse | Pan camera |
-| O key | Toggle orbits |
-| L key | Toggle labels |
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-## Performance Tips
-
-- For better performance on lower-end devices:
-  - Reduce particle count in `createSunParticles()`
-  - Lower star count in `createStarfield()`
-  - Disable particle effects via code modification
-
-## License
+## 📄 License
 
 This project is open source and available under the MIT License.
 
-## Acknowledgments
+## 🙏 Acknowledgments
 
-- Three.js community for excellent documentation
-- NASA for planetary data reference
-- Google Fonts for typography
+- **Three.js** community for the amazing library
+- **Outer Wilds** for audio inspiration
+- **NASA** for planetary data
+- **Space enthusiasts** everywhere! 🚀
+
+---
+
+<p align="center">
+  Made with ❤️ and Three.js | Star ⭐ this repo if you enjoyed it!
+</p>
