@@ -1,7 +1,7 @@
 const puppeteer = require('puppeteer');
 const path = require('path');
 
-async function captureScreen() {
+async function captureScreen(name = 'default', waitTime = 2000) {
     const browser = await puppeteer.launch({
         headless: 'new',
         args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -24,15 +24,14 @@ async function captureScreen() {
         });
         
         // Three.jsが完全に読み込まれるまで待機
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, waitTime));
     } catch (error) {
         console.error('Navigation error:', error);
         // エラーが発生しても続行
     }
     
     // スクリーンショットを撮影
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const screenshotPath = path.join(__dirname, `screenshots/solar-system-${timestamp}.png`);
+    const screenshotPath = path.join(__dirname, `screenshots/${name}.png`);
     
     await page.screenshot({
         path: screenshotPath,
@@ -45,4 +44,7 @@ async function captureScreen() {
 }
 
 // 実行
-captureScreen().catch(console.error);
+const args = process.argv.slice(2);
+const name = args[0] || 'default';
+const waitTime = parseInt(args[1]) || 2000;
+captureScreen(name, waitTime).catch(console.error);
