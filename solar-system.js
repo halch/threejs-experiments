@@ -661,6 +661,11 @@ function createPlanets() {
             createRings(planet, data.radius);
         }
         
+        // 大気圏エフェクトを追加
+        if (data.name === 'Earth' || data.name === 'Venus' || data.name === 'Mars') {
+            createAtmosphere(planetGroup, data);
+        }
+        
         createOrbit(data.distance);
         
         createPlanetTrail(planetGroup, data.color);
@@ -724,6 +729,156 @@ function createRings(planet, radius) {
     
     const ringParticles = new THREE.Points(particleGeometry, particleMaterial);
     planet.add(ringParticles);
+}
+
+function createAtmosphere(planetGroup, planetData) {
+    let atmosphereConfig = {};
+    
+    // 惑星ごとの大気設定
+    switch(planetData.name) {
+        case 'Earth':
+            atmosphereConfig = {
+                color: new THREE.Color(0x0088ff),
+                innerRadius: planetData.radius,
+                outerRadius: planetData.radius * 1.15,
+                opacity: 0.4,
+                glowIntensity: 0.7
+            };
+            break;
+        case 'Venus':
+            atmosphereConfig = {
+                color: new THREE.Color(0xffcc66),
+                innerRadius: planetData.radius,
+                outerRadius: planetData.radius * 1.3,
+                opacity: 0.8,
+                glowIntensity: 0.3
+            };
+            break;
+        case 'Mars':
+            atmosphereConfig = {
+                color: new THREE.Color(0xff6644),
+                innerRadius: planetData.radius,
+                outerRadius: planetData.radius * 1.08,
+                opacity: 0.2,
+                glowIntensity: 0.4
+            };
+            break;
+    }
+    
+    // 大気圏のシェーダーマテリアル
+    const atmosphereMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            color: { value: atmosphereConfig.color },
+            innerRadius: { value: atmosphereConfig.innerRadius },
+            outerRadius: { value: atmosphereConfig.outerRadius },
+            viewVector: { value: new THREE.Vector3() },
+            opacity: { value: atmosphereConfig.opacity },
+            glowIntensity: { value: atmosphereConfig.glowIntensity }
+        },
+        vertexShader: `
+            uniform vec3 viewVector;
+            uniform float innerRadius;
+            uniform float outerRadius;
+            varying float intensity;
+            varying vec3 vNormal;
+            
+            void main() {
+                vNormal = normalize(normalMatrix * normal);
+                vec3 vNormel = normalize(normalMatrix * viewVector);
+                
+                // リムライト効果の計算
+                float rim = 1.0 - abs(dot(vNormal, vNormel));
+                intensity = pow(rim, 2.0);
+                
+                // 頂点を少し外側に拡張
+                vec3 newPosition = position * (innerRadius + (outerRadius - innerRadius) * rim) / innerRadius;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 color;
+            uniform float opacity;
+            uniform float glowIntensity;
+            varying float intensity;
+            varying vec3 vNormal;
+            
+            void main() {
+                // 大気の色と透明度を計算
+                float atmosphereIntensity = pow(intensity, 1.5) * glowIntensity;
+                vec3 atmosphereColor = color * atmosphereIntensity;
+                
+                // 中心からの距離に基づくフェード
+                float alpha = atmosphereIntensity * opacity;
+                
+                gl_FragColor = vec4(atmosphereColor, alpha);
+            }
+        `,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        side: THREE.FrontSide,
+        depthWrite: false
+    });
+    
+    // 大気圏メッシュを作成
+    const atmosphereGeometry = new THREE.SphereGeometry(atmosphereConfig.outerRadius, 64, 64);
+    const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+    
+    // 雲のレイヤー（地球と金星用）
+    if (planetData.name === 'Earth' || planetData.name === 'Venus') {
+        const cloudGeometry = new THREE.SphereGeometry(
+            planetData.radius * (planetData.name === 'Earth' ? 1.02 : 1.05), 
+            32, 
+            32
+        );
+        
+        const cloudMaterial = new THREE.MeshPhongMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: planetData.name === 'Earth' ? 0.3 : 0.7,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        
+        // 雲のテクスチャを生成
+        const cloudCanvas = document.createElement('canvas');
+        cloudCanvas.width = 512;
+        cloudCanvas.height = 256;
+        const ctx = cloudCanvas.getContext('2d');
+        
+        // ランダムな雲パターンを描画
+        ctx.fillStyle = 'black';
+        ctx.fillRect(0, 0, cloudCanvas.width, cloudCanvas.height);
+        
+        for (let i = 0; i < 100; i++) {
+            const x = Math.random() * cloudCanvas.width;
+            const y = Math.random() * cloudCanvas.height;
+            const radius = Math.random() * 30 + 10;
+            
+            const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+            gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.3)');
+            gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+        }
+        
+        const cloudTexture = new THREE.CanvasTexture(cloudCanvas);
+        cloudMaterial.map = cloudTexture;
+        cloudMaterial.alphaMap = cloudTexture;
+        
+        const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
+        
+        // 雲をゆっくり回転させる
+        clouds.userData.rotationSpeed = planetData.name === 'Earth' ? 0.0002 : 0.0001;
+        planetGroup.add(clouds);
+        planetGroup.userData.clouds = clouds;
+    }
+    
+    // 大気圏を惑星グループに追加
+    planetGroup.add(atmosphere);
+    planetGroup.userData.atmosphere = atmosphere;
+    planetGroup.userData.atmosphereMaterial = atmosphereMaterial;
 }
 
 function createOrbit(radius) {
@@ -1679,6 +1834,21 @@ function animate() {
         planet.group.position.z = Math.sin(planet.angle) * planet.data.distance;
         
         planet.mesh.rotation.y += planet.data.rotationSpeed * speedMultiplier;
+        
+        // 大気圏エフェクトの更新
+        if (planet.group.userData.atmosphere && planet.group.userData.atmosphereMaterial) {
+            // カメラ方向ベクトルを更新
+            const viewVector = new THREE.Vector3().subVectors(
+                camera.position, 
+                planet.group.position
+            ).normalize();
+            planet.group.userData.atmosphereMaterial.uniforms.viewVector.value = viewVector;
+        }
+        
+        // 雲の回転
+        if (planet.group.userData.clouds) {
+            planet.group.userData.clouds.rotation.y += planet.group.userData.clouds.userData.rotationSpeed * speedMultiplier;
+        }
     });
     
     moons.forEach(moon => {
