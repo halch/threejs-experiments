@@ -19,7 +19,20 @@ let cometData = {
     perihelion: 60,  // 0.586 AU相当（地球軌道100に対して）
     aphelion: 35.1 * 100,  // 35.1 AU相当
     orbitalPeriod: 75.3,  // 年
-    speed: 0.001  // 公転周期に基づく速度
+    speed: 0.001,  // 公転周期に基づく速度
+    name: 'Halley\'s Comet',
+    type: 'Periodic Comet',
+    diameter: '15 × 8 km',
+    orbitalPeriodText: '75-76 years',
+    fact: 'Halley\'s Comet is visible from Earth every 75-76 years. It last appeared in 1986 and will return in 2061. Its tail can stretch over 100 million km!'
+};
+
+const sunData = {
+    name: 'Sun',
+    type: 'G-type Star',
+    diameter: '1,391,000 km',
+    temperature: '5,500°C (surface)',
+    fact: 'The Sun contains 99.86% of all mass in our solar system. Every second, it converts 4 million tons of matter into pure energy!'
 };
 
 // パーティクルの色を温度に基づいて取得する関数
@@ -141,22 +154,60 @@ function createPlanetTexture(planetName, baseColor) {
 }
 
 const planetData = [
-    { name: 'Mercury', radius: 3, distance: 40, color: 0x8c7c62, speed: 0.02, rotationSpeed: 0.01 },
-    { name: 'Venus', radius: 6, distance: 70, color: 0xffc649, speed: 0.015, rotationSpeed: 0.008 },
+    { name: 'Mercury', radius: 3, distance: 40, color: 0x8c7c62, speed: 0.02, rotationSpeed: 0.01,
+      type: 'Terrestrial Planet',
+      diameter: '4,879 km',
+      orbitalPeriod: '88 Earth days',
+      moons: [],
+      fact: 'Mercury is the fastest planet, zipping around the Sun every 88 Earth days. Despite being closest to the Sun, it\'s not the hottest planet!' },
+    { name: 'Venus', radius: 6, distance: 70, color: 0xffc649, speed: 0.015, rotationSpeed: 0.008,
+      type: 'Terrestrial Planet',
+      diameter: '12,104 km',
+      orbitalPeriod: '225 Earth days',
+      moons: [],
+      fact: 'Venus rotates backwards and is the hottest planet at 462°C. A day on Venus is longer than its year!' },
     { name: 'Earth', radius: 6.5, distance: 100, color: 0x1e90ff, speed: 0.01, rotationSpeed: 0.02,
-      moons: [{ name: 'Moon', radius: 2, distance: 15, color: 0xcccccc, speed: 0.03 }] },
-    { name: 'Mars', radius: 4, distance: 140, color: 0xcd5c5c, speed: 0.008, rotationSpeed: 0.018 },
+      type: 'Terrestrial Planet',
+      diameter: '12,742 km',
+      orbitalPeriod: '365.25 days',
+      moons: [{ name: 'Moon', radius: 2, distance: 15, color: 0xcccccc, speed: 0.03 }],
+      fact: 'Earth is the only known planet with life. Its atmosphere is 78% nitrogen and 21% oxygen, perfect for us!' },
+    { name: 'Mars', radius: 4, distance: 140, color: 0xcd5c5c, speed: 0.008, rotationSpeed: 0.018,
+      type: 'Terrestrial Planet',
+      diameter: '6,779 km',
+      orbitalPeriod: '687 Earth days',
+      moons: [],
+      fact: 'Mars has the largest volcano in the solar system - Olympus Mons, which is 21 km high, nearly three times taller than Mount Everest!' },
     { name: 'Jupiter', radius: 15, distance: 220, color: 0xffa500, speed: 0.005, rotationSpeed: 0.04,
+      type: 'Gas Giant',
+      diameter: '139,820 km',
+      orbitalPeriod: '12 Earth years',
       moons: [
         { name: 'Io', radius: 2, distance: 25, color: 0xffff99, speed: 0.04 },
         { name: 'Europa', radius: 1.8, distance: 30, color: 0xe6f2ff, speed: 0.03 },
         { name: 'Ganymede', radius: 2.5, distance: 35, color: 0xcc9966, speed: 0.02 },
         { name: 'Callisto', radius: 2.2, distance: 40, color: 0x8b7355, speed: 0.015 }
-      ] },
+      ],
+      fact: 'Jupiter\'s Great Red Spot is a storm that has been raging for at least 350 years! It\'s so large that Earth could fit inside it twice.' },
     { name: 'Saturn', radius: 12, distance: 320, color: 0xf4e99b, speed: 0.003, rotationSpeed: 0.038,
-      hasRings: true },
-    { name: 'Uranus', radius: 8, distance: 400, color: 0x4fd1c5, speed: 0.002, rotationSpeed: 0.03 },
-    { name: 'Neptune', radius: 8, distance: 480, color: 0x4169e1, speed: 0.001, rotationSpeed: 0.028 }
+      type: 'Gas Giant',
+      diameter: '116,460 km',
+      orbitalPeriod: '29 Earth years',
+      hasRings: true,
+      moons: [],
+      fact: 'Saturn\'s rings are made of billions of ice and rock particles. The planet is less dense than water - it would float!' },
+    { name: 'Uranus', radius: 8, distance: 400, color: 0x4fd1c5, speed: 0.002, rotationSpeed: 0.03,
+      type: 'Ice Giant',
+      diameter: '50,724 km',
+      orbitalPeriod: '84 Earth years',
+      moons: [],
+      fact: 'Uranus rotates on its side! It\'s tilted at 98 degrees, possibly due to a massive collision long ago.' },
+    { name: 'Neptune', radius: 8, distance: 480, color: 0x4169e1, speed: 0.001, rotationSpeed: 0.028,
+      type: 'Ice Giant',
+      diameter: '49,244 km',
+      orbitalPeriod: '165 Earth years',
+      moons: [],
+      fact: 'Neptune has the fastest winds in the solar system, reaching speeds of up to 2,100 km/h!' }
 ];
 
 function init() {
@@ -1110,6 +1161,9 @@ function updateTrails() {
 }
 
 function updateComet() {
+    // Store previous position for velocity calculation
+    const previousPos = comet.group.position.clone();
+    
     // 彗星の軌道運動（ケプラーの法則に基づく）
     // 平均運動 n = 2π / T (T = 周期)
     const meanMotion = (2 * Math.PI) / (cometData.orbitalPeriod * 365);  // 日単位
@@ -1140,6 +1194,10 @@ function updateComet() {
     const y = z * Math.sin(cometData.inclination);
     
     comet.group.position.set(x, y, z * Math.cos(cometData.inclination));
+    
+    // Calculate velocity
+    const currentPos = comet.group.position.clone();
+    comet.velocity = currentPos.distanceTo(previousPos);
     
     // 太陽からの距離を計算
     const distanceFromSun = comet.group.position.length();
@@ -1222,17 +1280,21 @@ function switchCameraView(mode) {
         cameraTarget = null;
         controls.enabled = true;
         startCameraTransition(null);
+        hidePlanetInfo();
     } else {
         controls.enabled = false;
         
         // Find the target object
         if (mode === 'sun') {
             cameraTarget = sun;
+            showPlanetInfo(sunData);
         } else if (mode === 'comet') {
             cameraTarget = comet ? comet.group : null;
+            if (cameraTarget) showPlanetInfo(cometData);
         } else {
             const planet = planets.find(p => p.data.name.toLowerCase() === mode);
             cameraTarget = planet ? planet.group : null;
+            if (planet) showPlanetInfo(planet.data);
         }
         
         if (cameraTarget) {
@@ -1267,6 +1329,86 @@ function startCameraTransition(target) {
             position: new THREE.Vector3(0, 200, 400),
             lookAt: new THREE.Vector3(0, 0, 0)
         };
+    }
+}
+
+function showPlanetInfo(data) {
+    const panel = document.getElementById('planet-info');
+    panel.style.display = 'block';
+    
+    document.getElementById('planet-name').textContent = data.name;
+    document.getElementById('planet-type').textContent = data.type;
+    document.getElementById('planet-diameter').textContent = data.diameter;
+    document.getElementById('planet-fact-text').textContent = data.fact;
+    
+    // For orbital period
+    if (data.orbitalPeriodText) {
+        document.getElementById('planet-period').textContent = data.orbitalPeriodText;
+    } else if (data.orbitalPeriod) {
+        document.getElementById('planet-period').textContent = data.orbitalPeriod;
+    } else {
+        document.getElementById('planet-period').textContent = 'N/A';
+    }
+    
+    // For moons
+    if (data.moons && data.moons.length > 0) {
+        document.getElementById('planet-moons').textContent = data.moons.length + ' moon(s)';
+    } else {
+        document.getElementById('planet-moons').textContent = 'None';
+    }
+    
+    // Special handling for sun
+    if (data.temperature) {
+        document.getElementById('planet-distance').parentElement.querySelector('.info-label').textContent = 'Temperature';
+        document.getElementById('planet-distance').textContent = data.temperature;
+    } else {
+        document.getElementById('planet-distance').parentElement.querySelector('.info-label').textContent = 'Distance from Sun';
+    }
+}
+
+function hidePlanetInfo() {
+    const panel = document.getElementById('planet-info');
+    panel.style.display = 'none';
+}
+
+function updatePlanetInfo() {
+    if (cameraMode === 'free' || !cameraTarget) return;
+    
+    let data = null;
+    let currentObject = null;
+    
+    if (cameraMode === 'sun') {
+        data = sunData;
+        currentObject = sun;
+    } else if (cameraMode === 'comet') {
+        data = cometData;
+        currentObject = comet ? comet.group : null;
+    } else {
+        const planet = planets.find(p => p.data.name.toLowerCase() === cameraMode);
+        if (planet) {
+            data = planet.data;
+            currentObject = planet.group;
+        }
+    }
+    
+    if (data && currentObject) {
+        // Update distance from sun (except for sun itself)
+        if (cameraMode !== 'sun') {
+            const distance = currentObject.position.length();
+            const distanceInAU = (distance / 100).toFixed(2); // Convert to AU (Earth = 100 units = 1 AU)
+            document.getElementById('planet-distance').textContent = `${distanceInAU} AU`;
+        }
+        
+        // Update current speed
+        if (cameraMode === 'comet' && comet && comet.velocity) {
+            const speed = comet.velocity * 1000; // Convert to display units
+            document.getElementById('planet-speed').textContent = `${speed.toFixed(2)} km/s`;
+        } else if (data.speed) {
+            const orbitalSpeed = data.speed * 100; // Convert to display units
+            document.getElementById('planet-speed').textContent = `${orbitalSpeed.toFixed(2)} km/s`;
+        } else {
+            document.getElementById('planet-speed').textContent = 'N/A';
+        }
     }
 }
 
@@ -1391,6 +1533,7 @@ function animate() {
     updateTrails();
     updateLabels();
     updateCameraPosition();
+    updatePlanetInfo();
     
     if (cameraMode === 'free') {
         controls.update();
