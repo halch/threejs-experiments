@@ -391,6 +391,65 @@ canvas {
     color: rgba(255, 255, 255, 0.8);
 }
 
+/* Minimap */
+.minimap {
+    position: absolute;
+    bottom: 30px;
+    right: 30px;
+    width: 200px;
+    height: 200px;
+    background: linear-gradient(135deg, rgba(15, 15, 30, 0.95), rgba(30, 15, 45, 0.95));
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(20px);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.minimap:hover {
+    transform: scale(1.05);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+}
+
+#minimap-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: crosshair;
+}
+
+.minimap-label {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: #ffd700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+    pointer-events: none;
+}
+
+/* Camera indicator on minimap */
+.minimap::after {
+    content: '';
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: #ff6b35;
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 10px #ff6b35, 0 0 20px #ff6b35;
+    pointer-events: none;
+    z-index: 10;
+}
+
 /* Media queries for responsive design */
 @media (max-width: 768px) {
     #info {
@@ -432,5 +491,17 @@ canvas {
     
     .info-grid {
         grid-template-columns: 1fr;
+    }
+    
+    .minimap {
+        bottom: 10px;
+        right: 10px;
+        width: 120px;
+        height: 120px;
+    }
+    
+    .minimap-label {
+        font-size: 10px;
+        bottom: 5px;
     }
 }

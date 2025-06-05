@@ -13,6 +13,7 @@ let asteroidBelt = null;
 let cameraMode = 'free';
 let cameraTarget = null;
 let cameraTransition = { active: false, startTime: 0, duration: 2000, from: null, to: null };
+let minimapCanvas, minimapCtx;
 let cometData = {
     // 実際のハレー彗星のパラメータ（スケール調整済み）
     eccentricity: 0.967,  // 実際の離心率
@@ -242,6 +243,7 @@ function init() {
     createComet();
     createLights();
     
+    setupMinimap();
     setupEventListeners();
     window.addEventListener('resize', onWindowResize);
 }
@@ -1326,6 +1328,172 @@ function updateLabels() {
     });
 }
 
+function setupMinimap() {
+    minimapCanvas = document.getElementById('minimap-canvas');
+    minimapCtx = minimapCanvas.getContext('2d');
+    
+    // Set canvas size
+    minimapCanvas.width = 200;
+    minimapCanvas.height = 200;
+    
+    // Add click event for minimap navigation
+    minimapCanvas.addEventListener('click', (event) => {
+        if (cameraMode !== 'free') return;
+        
+        const rect = minimapCanvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        
+        // Convert click position to world coordinates
+        const worldX = (x - minimapCanvas.width / 2) * 4;
+        const worldZ = (y - minimapCanvas.height / 2) * 4;
+        
+        // Smoothly move camera to clicked position
+        cameraTransition.active = true;
+        cameraTransition.startTime = Date.now();
+        cameraTransition.from = {
+            position: camera.position.clone(),
+            rotation: camera.rotation.clone()
+        };
+        cameraTransition.to = {
+            position: new THREE.Vector3(worldX, camera.position.y, worldZ),
+            lookAt: new THREE.Vector3(0, 0, 0)
+        };
+    });
+}
+
+function updateMinimap() {
+    if (!minimapCtx) return;
+    
+    const width = minimapCanvas.width;
+    const height = minimapCanvas.height;
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const scale = 0.25; // Scale factor for minimap
+    
+    // Clear canvas
+    minimapCtx.fillStyle = 'rgba(5, 5, 15, 0.9)';
+    minimapCtx.fillRect(0, 0, width, height);
+    
+    // Draw grid
+    minimapCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    minimapCtx.lineWidth = 1;
+    
+    // Concentric circles for distance reference
+    for (let r = 50; r <= 150; r += 50) {
+        minimapCtx.beginPath();
+        minimapCtx.arc(centerX, centerY, r * scale, 0, Math.PI * 2);
+        minimapCtx.stroke();
+    }
+    
+    // Draw sun
+    const gradient = minimapCtx.createRadialGradient(centerX, centerY, 0, centerX, centerY, 10);
+    gradient.addColorStop(0, '#ffff00');
+    gradient.addColorStop(0.5, '#ff9900');
+    gradient.addColorStop(1, 'rgba(255, 153, 0, 0.3)');
+    
+    minimapCtx.fillStyle = gradient;
+    minimapCtx.beginPath();
+    minimapCtx.arc(centerX, centerY, 8, 0, Math.PI * 2);
+    minimapCtx.fill();
+    
+    // Draw orbits
+    if (document.getElementById('showOrbits').checked) {
+        minimapCtx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        minimapCtx.lineWidth = 0.5;
+        
+        planets.forEach(planet => {
+            minimapCtx.beginPath();
+            minimapCtx.arc(centerX, centerY, planet.data.distance * scale, 0, Math.PI * 2);
+            minimapCtx.stroke();
+        });
+    }
+    
+    // Draw planets
+    planets.forEach(planet => {
+        const x = centerX + planet.group.position.x * scale;
+        const y = centerY + planet.group.position.z * scale;
+        const size = Math.max(2, planet.data.radius * scale * 0.5);
+        
+        // Planet glow
+        const planetGradient = minimapCtx.createRadialGradient(x, y, 0, x, y, size * 2);
+        const color = new THREE.Color(planet.data.color);
+        planetGradient.addColorStop(0, `rgb(${color.r * 255}, ${color.g * 255}, ${color.b * 255})`);
+        planetGradient.addColorStop(1, 'transparent');
+        
+        minimapCtx.fillStyle = planetGradient;
+        minimapCtx.beginPath();
+        minimapCtx.arc(x, y, size * 2, 0, Math.PI * 2);
+        minimapCtx.fill();
+        
+        // Planet core
+        minimapCtx.fillStyle = `rgb(${color.r * 255}, ${color.g * 255}, ${color.b * 255})`;
+        minimapCtx.beginPath();
+        minimapCtx.arc(x, y, size, 0, Math.PI * 2);
+        minimapCtx.fill();
+    });
+    
+    // Draw asteroid belt
+    if (asteroidBelt && document.getElementById('showAsteroids').checked) {
+        minimapCtx.fillStyle = 'rgba(150, 150, 150, 0.3)';
+        const positions = asteroidBelt.geometry.attributes.position.array;
+        
+        for (let i = 0; i < asteroidBelt.count; i += 50) { // Draw every 50th asteroid for performance
+            const x = centerX + positions[i * 3] * scale;
+            const y = centerY + positions[i * 3 + 2] * scale;
+            
+            minimapCtx.fillRect(x - 0.5, y - 0.5, 1, 1);
+        }
+    }
+    
+    // Draw comet
+    if (comet) {
+        const x = centerX + comet.group.position.x * scale;
+        const y = centerY + comet.group.position.z * scale;
+        
+        // Comet tail
+        minimapCtx.strokeStyle = 'rgba(100, 200, 255, 0.5)';
+        minimapCtx.lineWidth = 2;
+        minimapCtx.beginPath();
+        minimapCtx.moveTo(x, y);
+        const tailX = x - (comet.group.position.x - sun.position.x) * scale * 0.5;
+        const tailY = y - (comet.group.position.z - sun.position.z) * scale * 0.5;
+        minimapCtx.lineTo(tailX, tailY);
+        minimapCtx.stroke();
+        
+        // Comet nucleus
+        minimapCtx.fillStyle = '#88ccff';
+        minimapCtx.beginPath();
+        minimapCtx.arc(x, y, 3, 0, Math.PI * 2);
+        minimapCtx.fill();
+    }
+    
+    // Draw camera view indicator (only in free mode)
+    if (cameraMode === 'free') {
+        const camX = centerX + camera.position.x * scale;
+        const camY = centerY + camera.position.z * scale;
+        
+        // Camera position
+        minimapCtx.fillStyle = '#ff6b35';
+        minimapCtx.beginPath();
+        minimapCtx.arc(camX, camY, 3, 0, Math.PI * 2);
+        minimapCtx.fill();
+        
+        // Camera direction
+        const lookDir = new THREE.Vector3(0, 0, -1);
+        lookDir.applyQuaternion(camera.quaternion);
+        const dirX = camX + lookDir.x * 20;
+        const dirY = camY + lookDir.z * 20;
+        
+        minimapCtx.strokeStyle = '#ff6b35';
+        minimapCtx.lineWidth = 2;
+        minimapCtx.beginPath();
+        minimapCtx.moveTo(camX, camY);
+        minimapCtx.lineTo(dirX, dirY);
+        minimapCtx.stroke();
+    }
+}
+
 function setupEventListeners() {
     // メニューのトグル機能
     const menuToggle = document.getElementById('menu-toggle');
@@ -1874,6 +2042,7 @@ function animate() {
     updateLabels();
     updateCameraPosition();
     updatePlanetInfo();
+    updateMinimap();
     
     if (cameraMode === 'free') {
         controls.update();
