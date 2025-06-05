@@ -8,7 +8,6 @@ let orbits = [];
 let labels = [];
 let time = 0;
 let speedMultiplier = 1;
-let lastCameraPosition = new THREE.Vector3();
 
 // パーティクルの色を温度に基づいて取得する関数
 function getParticleColor(temperature) {
@@ -790,9 +789,9 @@ function updateLabels() {
             
             // 距離に応じてラベルのサイズを調整
             const distance = worldPosition.distanceTo(camera.position);
-            const scale = Math.min(1, 300 / distance);
-            label.element.style.fontSize = `${12 * scale}px`;
-            label.element.style.opacity = Math.min(1, scale * 1.5);
+            const scale = Math.min(1.5, 400 / distance);
+            label.element.style.fontSize = `${16 * scale}px`;
+            label.element.style.opacity = Math.min(1, scale * 1.2);
         } else {
             label.element.style.display = 'none';
         }
@@ -806,6 +805,10 @@ function setupEventListeners() {
     
     document.getElementById('speed').addEventListener('input', (e) => {
         speedMultiplier = parseFloat(e.target.value);
+        const speedValue = document.querySelector('.speed-value');
+        if (speedValue) {
+            speedValue.textContent = `${speedMultiplier.toFixed(1)}x`;
+        }
     });
 }
 
