@@ -174,6 +174,18 @@ threejs-experiments/
 npm run build
 ```
 
+### Generating Screenshots
+The project includes a Puppeteer script for automated screenshot generation:
+
+```bash
+# Basic usage
+node capture.js [filename] [wait-time-ms]
+
+# Examples
+node capture.js main-view 3000
+node capture.js clean-view 2000
+```
+
 ## Controls Reference
 
 | Control | Action |
