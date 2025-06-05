@@ -60,6 +60,11 @@
                         <option value="sun">Solar Orbit</option>
                     </select>
                 </div>
+                <div class="photo-mode-control">
+                    <button id="photo-mode-btn" class="photo-mode-button">
+                        📸 Photo Mode
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -103,6 +108,26 @@
     <div id="minimap" class="minimap">
         <canvas id="minimap-canvas"></canvas>
         <div class="minimap-label">System Overview</div>
+    </div>
+    
+    <!-- Photo Mode Controls -->
+    <div id="photo-mode-panel" class="photo-mode-panel" style="display: none;">
+        <div class="photo-mode-header">
+            <h2>📸 Photo Mode</h2>
+            <button id="exit-photo-mode" class="exit-photo-button">✕</button>
+        </div>
+        <div class="photo-mode-tips">
+            <p>Press <span class="key">P</span> to capture screenshot</p>
+            <p>Press <span class="key">ESC</span> to exit</p>
+            <p>Use mouse to frame your shot</p>
+        </div>
+        <div class="photo-mode-filters">
+            <h3>Filters</h3>
+            <button class="filter-btn active" data-filter="none">None</button>
+            <button class="filter-btn" data-filter="vintage">Vintage</button>
+            <button class="filter-btn" data-filter="cold">Cold Space</button>
+            <button class="filter-btn" data-filter="warm">Solar Glow</button>
+        </div>
     </div>
     
     <script type="module" src="solar-system.js"></script>

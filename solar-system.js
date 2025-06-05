@@ -14,6 +14,8 @@ let cameraMode = 'free';
 let cameraTarget = null;
 let cameraTransition = { active: false, startTime: 0, duration: 2000, from: null, to: null };
 let minimapCanvas, minimapCtx;
+let isPhotoMode = false;
+let currentFilter = 'none';
 let cometData = {
     // 実際のハレー彗星のパラメータ（スケール調整済み）
     eccentricity: 0.967,  // 実際の離心率
@@ -218,7 +220,10 @@ function init() {
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 5000);
     camera.position.set(0, 200, 400);
     
-    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer = new THREE.WebGLRenderer({ 
+        antialias: true,
+        preserveDrawingBuffer: true // スクリーンショットのために必要
+    });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
@@ -1526,6 +1531,31 @@ function setupEventListeners() {
     document.getElementById('camera-view').addEventListener('change', (e) => {
         switchCameraView(e.target.value);
     });
+    
+    // Photo mode
+    document.getElementById('photo-mode-btn').addEventListener('click', () => enterPhotoMode());
+    document.getElementById('exit-photo-mode').addEventListener('click', () => exitPhotoMode());
+    
+    // Filter buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            currentFilter = e.target.dataset.filter;
+            applyFilter(currentFilter);
+        });
+    });
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+        if (isPhotoMode) {
+            if (e.key === 'Escape') {
+                exitPhotoMode();
+            } else if (e.key.toLowerCase() === 'p') {
+                captureScreenshot();
+            }
+        }
+    });
 }
 
 function updateParticles() {
@@ -1898,6 +1928,152 @@ function updateAsteroidBelt() {
     
     // シェーダーの時間を更新（将来の効果のため）
     asteroidBelt.material.uniforms.time.value = time;
+}
+
+function enterPhotoMode() {
+    isPhotoMode = true;
+    document.body.classList.add('photo-mode');
+    document.getElementById('photo-mode-panel').style.display = 'block';
+    
+    // Hide labels
+    labels.forEach(label => {
+        label.element.style.transition = 'opacity 0.3s ease';
+        label.element.style.opacity = '0';
+    });
+}
+
+function exitPhotoMode() {
+    isPhotoMode = false;
+    document.body.classList.remove('photo-mode');
+    document.getElementById('photo-mode-panel').style.display = 'none';
+    
+    // Show labels if enabled
+    if (document.getElementById('showLabels').checked) {
+        labels.forEach(label => {
+            label.element.style.opacity = '1';
+        });
+    }
+    
+    // Reset filter
+    currentFilter = 'none';
+    applyFilter('none');
+}
+
+function applyFilter(filterType) {
+    switch(filterType) {
+        case 'vintage':
+            renderer.domElement.style.filter = 'sepia(0.5) contrast(1.2) brightness(0.9)';
+            break;
+        case 'cold':
+            renderer.domElement.style.filter = 'hue-rotate(200deg) saturate(1.2) brightness(1.1)';
+            break;
+        case 'warm':
+            renderer.domElement.style.filter = 'hue-rotate(-20deg) saturate(1.3) brightness(1.2)';
+            break;
+        default:
+            renderer.domElement.style.filter = 'none';
+    }
+}
+
+function captureScreenshot() {
+    // Render one more frame to ensure the buffer is current
+    renderer.render(scene, camera);
+    
+    // Create a flash effect
+    const flash = document.createElement('div');
+    flash.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: white;
+        opacity: 0;
+        pointer-events: none;
+        z-index: 9999;
+        transition: opacity 0.1s ease;
+    `;
+    document.body.appendChild(flash);
+    
+    // Trigger flash
+    setTimeout(() => flash.style.opacity = '0.8', 10);
+    setTimeout(() => flash.style.opacity = '0', 100);
+    setTimeout(() => document.body.removeChild(flash), 300);
+    
+    // Capture screenshot with a slight delay to ensure rendering is complete
+    setTimeout(() => {
+        try {
+            // Get the canvas data
+            const canvas = renderer.domElement;
+            
+            // Create a new canvas with the same dimensions
+            const screenshotCanvas = document.createElement('canvas');
+            screenshotCanvas.width = canvas.width;
+            screenshotCanvas.height = canvas.height;
+            const ctx = screenshotCanvas.getContext('2d');
+            
+            // Draw the WebGL canvas to the 2D canvas
+            ctx.drawImage(canvas, 0, 0);
+            
+            // Get the data URL from the 2D canvas
+            const dataURL = screenshotCanvas.toDataURL('image/png');
+            
+            // Download the image
+            const link = document.createElement('a');
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            link.download = `solar-system-${timestamp}.png`;
+            link.href = dataURL;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Show notification
+            showNotification('Screenshot captured! 📸');
+        } catch (error) {
+            console.error('Screenshot failed:', error);
+            showNotification('Screenshot failed. Please try again.');
+        }
+    }, 150);
+}
+
+function showNotification(message) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, rgba(15, 15, 30, 0.98), rgba(30, 15, 45, 0.98));
+        color: #ffd700;
+        padding: 15px 30px;
+        border-radius: 10px;
+        font-family: 'Orbitron', monospace;
+        font-weight: 700;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        z-index: 10000;
+        animation: slideUp 0.3s ease-out;
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    // Add animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideUp {
+            from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        notification.style.animation = 'slideUp 0.3s ease-out reverse';
+        setTimeout(() => {
+            document.body.removeChild(notification);
+            document.head.removeChild(style);
+        }, 300);
+    }, 3000);
 }
 
 function updateCameraPosition() {
