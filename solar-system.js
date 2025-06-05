@@ -23,6 +23,111 @@ function getParticleColor(temperature) {
     return color;
 }
 
+// パーティクル用の円形テクスチャを作成
+function createCircleTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const context = canvas.getContext('2d');
+    
+    const gradient = context.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gradient.addColorStop(0, 'rgba(255,255,255,1)');
+    gradient.addColorStop(0.2, 'rgba(255,255,255,0.8)');
+    gradient.addColorStop(0.4, 'rgba(255,200,100,0.6)');
+    gradient.addColorStop(0.7, 'rgba(255,100,50,0.3)');
+    gradient.addColorStop(1, 'rgba(255,50,0,0)');
+    
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 64, 64);
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    return texture;
+}
+
+// 惑星のテクスチャを生成
+function createPlanetTexture(planetName, baseColor) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 256;
+    const context = canvas.getContext('2d');
+    
+    // ベースカラーを塗る
+    const color = new THREE.Color(baseColor);
+    context.fillStyle = `rgb(${Math.floor(color.r * 255)}, ${Math.floor(color.g * 255)}, ${Math.floor(color.b * 255)})`;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // 惑星ごとの特徴を追加
+    if (planetName === 'Earth') {
+        // 地球：大陸と海
+        context.fillStyle = '#2e8b57';
+        for (let i = 0; i < 5; i++) {
+            const x = Math.random() * canvas.width;
+            const y = Math.random() * canvas.height;
+            const w = 50 + Math.random() * 100;
+            const h = 30 + Math.random() * 70;
+            context.fillRect(x, y, w, h);
+        }
+        
+        // 雲
+        context.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        for (let i = 0; i < 20; i++) {
+            const x = Math.random() * canvas.width;
+            const y = Math.random() * canvas.height;
+            const radius = 10 + Math.random() * 30;
+            context.beginPath();
+            context.arc(x, y, radius, 0, Math.PI * 2);
+            context.fill();
+        }
+    } else if (planetName === 'Jupiter') {
+        // 木星：縞模様
+        for (let i = 0; i < canvas.height; i += 10) {
+            const hue = 30 + Math.sin(i * 0.05) * 10;
+            const lightness = 50 + Math.sin(i * 0.1) * 20;
+            context.fillStyle = `hsl(${hue}, 70%, ${lightness}%)`;
+            context.fillRect(0, i, canvas.width, 10);
+        }
+        
+        // 大赤斑
+        context.fillStyle = '#cd5c5c';
+        context.beginPath();
+        context.ellipse(canvas.width * 0.7, canvas.height * 0.6, 40, 20, 0, 0, Math.PI * 2);
+        context.fill();
+    } else if (planetName === 'Mars') {
+        // 火星：極冠
+        context.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        context.fillRect(0, 0, canvas.width, 20);
+        context.fillRect(0, canvas.height - 20, canvas.width, 20);
+        
+        // 暗い領域
+        context.fillStyle = 'rgba(139, 69, 19, 0.5)';
+        for (let i = 0; i < 10; i++) {
+            const x = Math.random() * canvas.width;
+            const y = 20 + Math.random() * (canvas.height - 40);
+            const radius = 20 + Math.random() * 40;
+            context.beginPath();
+            context.arc(x, y, radius, 0, Math.PI * 2);
+            context.fill();
+        }
+    } else {
+        // その他の惑星：ノイズパターン
+        for (let i = 0; i < 100; i++) {
+            const x = Math.random() * canvas.width;
+            const y = Math.random() * canvas.height;
+            const radius = Math.random() * 20;
+            const opacity = Math.random() * 0.3;
+            context.fillStyle = `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, ${opacity})`;
+            context.beginPath();
+            context.arc(x, y, radius, 0, Math.PI * 2);
+            context.fill();
+        }
+    }
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    return texture;
+}
+
 const planetData = [
     { name: 'Mercury', radius: 3, distance: 40, color: 0x8c7c62, speed: 0.02, rotationSpeed: 0.01 },
     { name: 'Venus', radius: 6, distance: 70, color: 0xffc649, speed: 0.015, rotationSpeed: 0.008 },
@@ -58,6 +163,13 @@ function init() {
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
+    controls.minDistance = 50;
+    controls.maxDistance = 2000;
+    controls.maxPolarAngle = Math.PI * 0.9;
+    controls.minPolarAngle = Math.PI * 0.1;
+    controls.enablePan = true;
+    controls.panSpeed = 0.8;
+    controls.rotateSpeed = 0.6;
     
     createStarfield();
     createSun();
@@ -69,23 +181,113 @@ function init() {
 }
 
 function createStarfield() {
+    // 多層の星空を作成
+    const layers = [
+        { count: 20000, sizeRange: [0.5, 1.5], distanceRange: [1500, 3000], brightness: 0.8 },
+        { count: 10000, sizeRange: [1, 2.5], distanceRange: [1000, 2000], brightness: 1 },
+        { count: 5000, sizeRange: [2, 4], distanceRange: [800, 1500], brightness: 0.6 }
+    ];
+    
+    layers.forEach((layer, layerIndex) => {
+        const geometry = new THREE.BufferGeometry();
+        const vertices = [];
+        const colors = [];
+        const sizes = [];
+        
+        for (let i = 0; i < layer.count; i++) {
+            const angle1 = Math.random() * Math.PI * 2;
+            const angle2 = Math.random() * Math.PI;
+            const radius = layer.distanceRange[0] + Math.random() * (layer.distanceRange[1] - layer.distanceRange[0]);
+            
+            vertices.push(
+                radius * Math.sin(angle2) * Math.cos(angle1),
+                radius * Math.sin(angle2) * Math.sin(angle1),
+                radius * Math.cos(angle2)
+            );
+            
+            // より多様な星の色
+            const starType = Math.random();
+            const color = new THREE.Color();
+            if (starType < 0.15) {
+                // 青い星（高温）
+                color.setHSL(0.6, 0.8, 0.7 + Math.random() * 0.3);
+            } else if (starType < 0.3) {
+                // 赤い星（低温）
+                color.setHSL(0.0, 0.6, 0.5 + Math.random() * 0.3);
+            } else if (starType < 0.4) {
+                // 黄色い星
+                color.setHSL(0.15, 0.7, 0.6 + Math.random() * 0.3);
+            } else {
+                // 白い星（通常）
+                color.setHSL(0.6, 0.1, 0.7 + Math.random() * 0.3);
+            }
+            
+            colors.push(color.r * layer.brightness, color.g * layer.brightness, color.b * layer.brightness);
+            sizes.push(layer.sizeRange[0] + Math.random() * (layer.sizeRange[1] - layer.sizeRange[0]));
+        }
+        
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+        
+        const material = new THREE.PointsMaterial({
+            size: 1,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.9 - layerIndex * 0.2,
+            sizeAttenuation: true,
+            blending: THREE.AdditiveBlending,
+            map: createStarTexture()
+        });
+        
+        const stars = new THREE.Points(geometry, material);
+        scene.add(stars);
+    });
+    
+    // 天の川効果を追加
+    createMilkyWay();
+}
+
+// 星のテクスチャを作成
+function createStarTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 32;
+    canvas.height = 32;
+    const context = canvas.getContext('2d');
+    
+    const gradient = context.createRadialGradient(16, 16, 0, 16, 16, 16);
+    gradient.addColorStop(0, 'rgba(255,255,255,1)');
+    gradient.addColorStop(0.4, 'rgba(255,255,255,0.8)');
+    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+    
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 32, 32);
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    return texture;
+}
+
+// 天の川効果
+function createMilkyWay() {
     const geometry = new THREE.BufferGeometry();
     const vertices = [];
     const colors = [];
+    const milkyWayParticles = 30000;
     
-    for (let i = 0; i < 10000; i++) {
-        const angle1 = Math.random() * Math.PI * 2;
-        const angle2 = Math.random() * Math.PI;
-        const radius = 2000 + Math.random() * 1000;
+    for (let i = 0; i < milkyWayParticles; i++) {
+        const t = (i / milkyWayParticles) * Math.PI * 2;
+        const spread = Math.random() * 100 - 50;
+        const distance = 1000 + Math.random() * 500;
         
-        vertices.push(
-            radius * Math.sin(angle2) * Math.cos(angle1),
-            radius * Math.sin(angle2) * Math.sin(angle1),
-            radius * Math.cos(angle2)
-        );
+        const x = Math.cos(t) * distance + (Math.random() - 0.5) * spread;
+        const y = (Math.random() - 0.5) * 200 + Math.sin(t * 2) * 50;
+        const z = Math.sin(t) * distance + (Math.random() - 0.5) * spread;
+        
+        vertices.push(x, y, z);
         
         const color = new THREE.Color();
-        color.setHSL(0.6 + Math.random() * 0.4, 0.2, 0.5 + Math.random() * 0.5);
+        color.setHSL(0.6, 0.1, 0.2 + Math.random() * 0.3);
         colors.push(color.r, color.g, color.b);
     }
     
@@ -93,14 +295,15 @@ function createStarfield() {
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     
     const material = new THREE.PointsMaterial({
-        size: 2,
+        size: 0.8,
         vertexColors: true,
         transparent: true,
-        opacity: 0.8
+        opacity: 0.3,
+        blending: THREE.AdditiveBlending
     });
     
-    const stars = new THREE.Points(geometry, material);
-    scene.add(stars);
+    const milkyWay = new THREE.Points(geometry, material);
+    scene.add(milkyWay);
 }
 
 function createSun() {
@@ -266,30 +469,32 @@ function createSun() {
 }
 
 function createSunParticles() {
-    // プラズマ噴出パーティクル（控えめに調整）
+    // より動的なプラズマ噴出パーティクル
     const geometry = new THREE.BufferGeometry();
-    const particleCount = 3000; // 数を減らす
+    const particleCount = 5000;
     const positions = new Float32Array(particleCount * 3);
     const velocities = new Float32Array(particleCount * 3);
     const colors = new Float32Array(particleCount * 3);
     const sizes = new Float32Array(particleCount);
     const lifetimes = new Float32Array(particleCount);
     const opacities = new Float32Array(particleCount);
+    const phases = new Float32Array(particleCount);
     
     for (let i = 0; i < particleCount; i++) {
         const angle = Math.random() * Math.PI * 2;
-        const radius = 20 + Math.random() * 3; // より太陽に近い位置から開始
-        const height = (Math.random() - 0.5) * 30; // 高さの範囲を狭める
+        const elevation = (Math.random() - 0.5) * Math.PI * 0.3;
+        const radius = 20 + Math.random() * 5;
         
-        positions[i * 3] = Math.cos(angle) * radius;
-        positions[i * 3 + 1] = height;
-        positions[i * 3 + 2] = Math.sin(angle) * radius;
+        positions[i * 3] = Math.cos(angle) * Math.cos(elevation) * radius;
+        positions[i * 3 + 1] = Math.sin(elevation) * radius;
+        positions[i * 3 + 2] = Math.sin(angle) * Math.cos(elevation) * radius;
         
-        // 外向きの速度（控えめに）
-        const speed = 0.3 + Math.random() * 0.7; // 速度を下げる
-        velocities[i * 3] = Math.cos(angle) * speed;
-        velocities[i * 3 + 1] = (Math.random() - 0.5) * speed * 0.5;
-        velocities[i * 3 + 2] = Math.sin(angle) * speed;
+        // より複雑な速度パターン
+        const speed = 0.5 + Math.random() * 1.5;
+        const turbulence = Math.random() * 0.3;
+        velocities[i * 3] = Math.cos(angle) * speed + (Math.random() - 0.5) * turbulence;
+        velocities[i * 3 + 1] = (Math.random() - 0.5) * speed * 0.8;
+        velocities[i * 3 + 2] = Math.sin(angle) * speed + (Math.random() - 0.5) * turbulence;
         
         // 温度による色のグラデーション（明度を抑える）
         const temp = Math.random();
@@ -298,9 +503,10 @@ function createSunParticles() {
         colors[i * 3 + 1] = color.g;
         colors[i * 3 + 2] = color.b;
         
-        sizes[i] = Math.random() * 1.5 + 0.5; // サイズを小さく
+        sizes[i] = Math.random() * 2.5 + 0.5;
         lifetimes[i] = Math.random();
-        opacities[i] = 0.3 + Math.random() * 0.3; // 初期透明度を設定
+        opacities[i] = 0.6 + Math.random() * 0.4;
+        phases[i] = Math.random() * Math.PI * 2;
     }
     
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -309,24 +515,26 @@ function createSunParticles() {
     geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
     geometry.setAttribute('lifetime', new THREE.BufferAttribute(lifetimes, 1));
     geometry.setAttribute('opacity', new THREE.BufferAttribute(opacities, 1));
+    geometry.setAttribute('phase', new THREE.BufferAttribute(phases, 1));
     
     const material = new THREE.PointsMaterial({
-        size: 1, // 基本サイズを小さく
+        size: 2,
         vertexColors: true,
         blending: THREE.AdditiveBlending,
         transparent: true,
-        opacity: 0.4, // 全体の透明度を下げる
+        opacity: 0.8,
         sizeAttenuation: true,
-        depthWrite: false // 深度バッファへの書き込みを無効化
+        depthWrite: false,
+        map: createCircleTexture()
     });
     
     const particles = new THREE.Points(geometry, material);
     sun.add(particles);
     particleSystems.push({ particles, type: 'sun' });
     
-    // コロナループパーティクル（控えめに調整）
+    // ダイナミックなコロナループパーティクル
     const loopGeometry = new THREE.BufferGeometry();
-    const loopCount = 1000; // 数を減らす
+    const loopCount = 2000;
     const loopPositions = new Float32Array(loopCount * 3);
     const loopColors = new Float32Array(loopCount * 3);
     
@@ -369,11 +577,13 @@ function createPlanets() {
         const planetGroup = new THREE.Group();
         
         const geometry = new THREE.SphereGeometry(data.radius, 32, 32);
+        const texture = createPlanetTexture(data.name, data.color);
         const material = new THREE.MeshPhongMaterial({
-            color: data.color,
+            map: texture,
             emissive: data.color,
-            emissiveIntensity: 0.1,
-            shininess: 30
+            emissiveIntensity: 0.05,
+            shininess: data.name === 'Earth' ? 100 : 30,
+            bumpScale: 0.05
         });
         
         const planet = new THREE.Mesh(geometry, material);
@@ -551,12 +761,6 @@ function createLabel(text, object) {
 function updateLabels() {
     const showLabels = document.getElementById('showLabels').checked;
     
-    // カメラが移動していない場合はスキップ
-    if (camera.position.equals(lastCameraPosition) && labels.length > 0) {
-        return;
-    }
-    lastCameraPosition.copy(camera.position);
-    
     labels.forEach((label) => {
         if (showLabels) {
             // ワールド座標を取得（planetGroupの実際の位置）
@@ -583,6 +787,12 @@ function updateLabels() {
             label.element.style.top = y + 'px';
             label.element.style.transform = 'translate(-50%, -50%)';
             label.element.style.display = 'block';
+            
+            // 距離に応じてラベルのサイズを調整
+            const distance = worldPosition.distanceTo(camera.position);
+            const scale = Math.min(1, 300 / distance);
+            label.element.style.fontSize = `${12 * scale}px`;
+            label.element.style.opacity = Math.min(1, scale * 1.5);
         } else {
             label.element.style.display = 'none';
         }
