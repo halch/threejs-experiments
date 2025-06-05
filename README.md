@@ -64,8 +64,8 @@ An advanced interactive 3D solar system simulation with realistic physics, immer
 
 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/threejs-experiments.git
-cd threejs-experiments
+git clone https://github.com/yourusername/solar-system-explorer.git
+cd solar-system-explorer
 ```
 
 2. Install dependencies
@@ -153,7 +153,7 @@ npm run dev
 ### Project Structure
 
 ```
-threejs-experiments/
+solar-system-explorer/
 ├── index.html              # Modern UI with glassmorphism
 ├── solar-system.js         # Core simulation (2600+ lines)
 ├── solar-style.css         # Advanced styling with animations

@@ -1,5 +1,5 @@
 {
-  "name": "threejs-experiments",
+  "name": "solar-system-explorer",
   "version": "1.0.0",
   "description": "Three.jsを使用したリアルな太陽系のビジュアライゼーションです。",
   "main": "solar-system.js",
