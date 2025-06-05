@@ -8,6 +8,16 @@ let orbits = [];
 let labels = [];
 let time = 0;
 let speedMultiplier = 1;
+let comet = null;
+let cometData = {
+    // 実際のハレー彗星のパラメータ（スケール調整済み）
+    eccentricity: 0.967,  // 実際の離心率
+    inclination: Math.PI * 0.9,  // 162度を簡略化（逆行軌道）
+    perihelion: 60,  // 0.586 AU相当（地球軌道100に対して）
+    aphelion: 35.1 * 100,  // 35.1 AU相当
+    orbitalPeriod: 75.3,  // 年
+    speed: 0.001  // 公転周期に基づく速度
+};
 
 // パーティクルの色を温度に基づいて取得する関数
 function getParticleColor(temperature) {
@@ -163,7 +173,7 @@ function init() {
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.minDistance = 50;
-    controls.maxDistance = 2000;
+    controls.maxDistance = 5000;  // より遠くまでズームアウト可能に
     controls.maxPolarAngle = Math.PI * 0.9;
     controls.minPolarAngle = Math.PI * 0.1;
     controls.enablePan = true;
@@ -173,6 +183,7 @@ function init() {
     createStarfield();
     createSun();
     createPlanets();
+    createComet();
     createLights();
     
     setupEventListeners();
@@ -738,6 +749,184 @@ function createLights() {
     scene.add(sunLight);
 }
 
+function createComet() {
+    // 彗星のグループ
+    const cometGroup = new THREE.Group();
+    
+    // 彗星の核（コア）
+    const coreGeometry = new THREE.IcosahedronGeometry(4, 1);  // サイズを大きく
+    const coreMaterial = new THREE.MeshPhongMaterial({
+        color: 0xcccccc,
+        emissive: 0x666666,  // より明るく
+        emissiveIntensity: 0.8,
+        roughness: 0.8
+    });
+    const cometCore = new THREE.Mesh(coreGeometry, coreMaterial);
+    cometGroup.add(cometCore);
+    
+    // コマ（彗星の頭部の輝き）
+    const comaGeometry = new THREE.SphereGeometry(12, 16, 16);  // サイズを大きく
+    const comaMaterial = new THREE.MeshBasicMaterial({
+        color: 0x88ccff,
+        transparent: true,
+        opacity: 0.5,  // より見やすく
+        blending: THREE.AdditiveBlending
+    });
+    const coma = new THREE.Mesh(comaGeometry, comaMaterial);
+    cometGroup.add(coma);
+    
+    // 彗星の尾のパーティクルシステム
+    createCometTail(cometGroup);
+    
+    // 彗星の軌道を作成
+    createCometOrbit();
+    
+    comet = {
+        group: cometGroup,
+        core: cometCore,
+        coma: coma,
+        angle: 0 // 近日点から開始
+    };
+    
+    scene.add(cometGroup);
+    createLabel('Halley\'s Comet', cometGroup);
+}
+
+function createCometTail(cometGroup) {
+    // イオンテール（青い尾）
+    const ionTailGeometry = new THREE.BufferGeometry();
+    const ionParticleCount = 5000;
+    const ionPositions = new Float32Array(ionParticleCount * 3);
+    const ionColors = new Float32Array(ionParticleCount * 3);
+    const ionSizes = new Float32Array(ionParticleCount);
+    
+    for (let i = 0; i < ionParticleCount; i++) {
+        // 初期位置は彗星の位置
+        ionPositions[i * 3] = 0;
+        ionPositions[i * 3 + 1] = 0;
+        ionPositions[i * 3 + 2] = 0;
+        
+        // 青っぽい色
+        const intensity = Math.random();
+        ionColors[i * 3] = 0.3 + intensity * 0.3;
+        ionColors[i * 3 + 1] = 0.6 + intensity * 0.4;
+        ionColors[i * 3 + 2] = 1.0;
+        
+        ionSizes[i] = Math.random() * 3 + 1;
+    }
+    
+    ionTailGeometry.setAttribute('position', new THREE.BufferAttribute(ionPositions, 3));
+    ionTailGeometry.setAttribute('color', new THREE.BufferAttribute(ionColors, 3));
+    ionTailGeometry.setAttribute('size', new THREE.BufferAttribute(ionSizes, 1));
+    
+    const ionTailMaterial = new THREE.PointsMaterial({
+        size: 3,  // より大きく
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.8,  // より目立つように
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        map: createStarTexture()
+    });
+    
+    const ionTail = new THREE.Points(ionTailGeometry, ionTailMaterial);
+    cometGroup.add(ionTail);
+    
+    // ダストテール（黄色い尾）
+    const dustTailGeometry = new THREE.BufferGeometry();
+    const dustParticleCount = 3000;
+    const dustPositions = new Float32Array(dustParticleCount * 3);
+    const dustColors = new Float32Array(dustParticleCount * 3);
+    const dustSizes = new Float32Array(dustParticleCount);
+    
+    for (let i = 0; i < dustParticleCount; i++) {
+        dustPositions[i * 3] = 0;
+        dustPositions[i * 3 + 1] = 0;
+        dustPositions[i * 3 + 2] = 0;
+        
+        // 黄色っぽい色
+        const intensity = Math.random();
+        dustColors[i * 3] = 1.0;
+        dustColors[i * 3 + 1] = 0.8 + intensity * 0.2;
+        dustColors[i * 3 + 2] = 0.4 + intensity * 0.3;
+        
+        dustSizes[i] = Math.random() * 4 + 2;
+    }
+    
+    dustTailGeometry.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3));
+    dustTailGeometry.setAttribute('color', new THREE.BufferAttribute(dustColors, 3));
+    dustTailGeometry.setAttribute('size', new THREE.BufferAttribute(dustSizes, 1));
+    
+    const dustTailMaterial = new THREE.PointsMaterial({
+        size: 4,  // より大きく
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.6,  // より目立つように
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        map: createStarTexture()
+    });
+    
+    const dustTail = new THREE.Points(dustTailGeometry, dustTailMaterial);
+    cometGroup.add(dustTail);
+    
+    // パーティクルシステムに追加
+    particleSystems.push({ 
+        particles: ionTail, 
+        type: 'cometIonTail',
+        geometry: ionTailGeometry
+    });
+    particleSystems.push({ 
+        particles: dustTail, 
+        type: 'cometDustTail',
+        geometry: dustTailGeometry
+    });
+}
+
+function createCometOrbit() {
+    // 楕円軌道の作成
+    const points = [];
+    const segments = 200;
+    
+    for (let i = 0; i <= segments; i++) {
+        const meanAnomaly = (i / segments) * Math.PI * 2;
+        let eccentricAnomaly = meanAnomaly;
+        
+        // ニュートン法で離心近点角を計算
+        for (let j = 0; j < 5; j++) {
+            eccentricAnomaly = meanAnomaly + cometData.eccentricity * Math.sin(eccentricAnomaly);
+        }
+        
+        // 真近点角の計算
+        const trueAnomaly = 2 * Math.atan2(
+            Math.sqrt(1 + cometData.eccentricity) * Math.sin(eccentricAnomaly / 2),
+            Math.sqrt(1 - cometData.eccentricity) * Math.cos(eccentricAnomaly / 2)
+        );
+        
+        // 動径の計算
+        const radius = cometData.perihelion * (1 + cometData.eccentricity) / 
+                      (1 + cometData.eccentricity * Math.cos(trueAnomaly));
+        
+        // 3D位置の計算
+        const x = radius * Math.cos(trueAnomaly);
+        const z = radius * Math.sin(trueAnomaly);
+        const y = z * Math.sin(cometData.inclination);
+        
+        points.push(new THREE.Vector3(x, y, z * Math.cos(cometData.inclination)));
+    }
+    
+    const orbitGeometry = new THREE.BufferGeometry().setFromPoints(points);
+    const orbitMaterial = new THREE.LineBasicMaterial({
+        color: 0x4488ff,
+        opacity: 0.5,
+        transparent: true
+    });
+    
+    const orbitLine = new THREE.Line(orbitGeometry, orbitMaterial);
+    scene.add(orbitLine);
+    orbits.push(orbitLine);
+}
+
 function createLabel(text, object) {
     const label = document.createElement('div');
     label.className = 'planet-label';
@@ -903,6 +1092,106 @@ function updateTrails() {
     });
 }
 
+function updateComet() {
+    // 彗星の軌道運動（ケプラーの法則に基づく）
+    // 平均運動 n = 2π / T (T = 周期)
+    const meanMotion = (2 * Math.PI) / (cometData.orbitalPeriod * 365);  // 日単位
+    comet.angle += meanMotion * speedMultiplier * 0.1;  // スケール調整
+    
+    // 楕円軌道の計算
+    const meanAnomaly = comet.angle;
+    let eccentricAnomaly = meanAnomaly;
+    
+    // ニュートン法で離心近点角を計算
+    for (let i = 0; i < 5; i++) {
+        eccentricAnomaly = meanAnomaly + cometData.eccentricity * Math.sin(eccentricAnomaly);
+    }
+    
+    // 真近点角の計算
+    const trueAnomaly = 2 * Math.atan2(
+        Math.sqrt(1 + cometData.eccentricity) * Math.sin(eccentricAnomaly / 2),
+        Math.sqrt(1 - cometData.eccentricity) * Math.cos(eccentricAnomaly / 2)
+    );
+    
+    // 動径の計算
+    const radius = cometData.perihelion * (1 + cometData.eccentricity) / 
+                  (1 + cometData.eccentricity * Math.cos(trueAnomaly));
+    
+    // 3D位置の計算
+    const x = radius * Math.cos(trueAnomaly);
+    const z = radius * Math.sin(trueAnomaly);
+    const y = z * Math.sin(cometData.inclination);
+    
+    comet.group.position.set(x, y, z * Math.cos(cometData.inclination));
+    
+    // 太陽からの距離を計算
+    const distanceFromSun = comet.group.position.length();
+    
+    // 彗星の尾を更新
+    updateCometTail(distanceFromSun, trueAnomaly);
+    
+    // コマのサイズを距離に応じて調整
+    const comaScale = Math.max(0.5, 2 - distanceFromSun / 200);
+    comet.coma.scale.setScalar(comaScale);
+    comet.coma.material.opacity = Math.max(0.1, 0.5 - distanceFromSun / 400);
+    
+    // デバッグ用：彗星の位置を確認
+    if (Math.random() < 0.01) {  // 1%の確率でログ出力
+        console.log('Comet position:', comet.group.position);
+        console.log('Distance from Sun:', distanceFromSun);
+    }
+}
+
+function updateCometTail(distanceFromSun, trueAnomaly) {
+    // 太陽からの距離に基づいて尾の長さと強度を計算
+    const tailIntensity = Math.max(0, 1 - distanceFromSun / 200);  // より近い距離で反応
+    const tailLength = tailIntensity * 150;  // より長い尾
+    
+    // 太陽と反対方向のベクトルを計算
+    const sunDirection = comet.group.position.clone().normalize().negate();
+    
+    particleSystems.forEach(system => {
+        if (system.type === 'cometIonTail' || system.type === 'cometDustTail') {
+            const positions = system.geometry.attributes.position.array;
+            const particleCount = positions.length / 3;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const progress = i / particleCount;
+                
+                if (system.type === 'cometIonTail') {
+                    // イオンテール：太陽風に直接影響される
+                    const spread = progress * 10;
+                    positions[i * 3] = sunDirection.x * progress * tailLength + 
+                                     (Math.random() - 0.5) * spread;
+                    positions[i * 3 + 1] = sunDirection.y * progress * tailLength + 
+                                         (Math.random() - 0.5) * spread;
+                    positions[i * 3 + 2] = sunDirection.z * progress * tailLength + 
+                                         (Math.random() - 0.5) * spread;
+                } else {
+                    // ダストテール：軌道に沿って曲がる
+                    const curve = Math.sin(progress * Math.PI) * 20;
+                    const spread = progress * 15;
+                    
+                    positions[i * 3] = sunDirection.x * progress * tailLength * 0.8 + 
+                                     Math.sin(trueAnomaly) * curve +
+                                     (Math.random() - 0.5) * spread;
+                    positions[i * 3 + 1] = sunDirection.y * progress * tailLength * 0.8 + 
+                                         (Math.random() - 0.5) * spread;
+                    positions[i * 3 + 2] = sunDirection.z * progress * tailLength * 0.8 - 
+                                         Math.cos(trueAnomaly) * curve +
+                                         (Math.random() - 0.5) * spread;
+                }
+            }
+            
+            system.geometry.attributes.position.needsUpdate = true;
+            
+            // 透明度を調整
+            system.particles.material.opacity = tailIntensity * 
+                (system.type === 'cometIonTail' ? 0.8 : 0.6);
+        }
+    });
+}
+
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
@@ -939,6 +1228,11 @@ function animate() {
         
         moon.mesh.rotation.y += 0.02 * speedMultiplier;
     });
+    
+    // 彗星のアニメーション
+    if (comet) {
+        updateComet();
+    }
     
     updateParticles();
     updateTrails();
