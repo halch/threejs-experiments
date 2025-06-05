@@ -16,6 +16,9 @@ let cameraTransition = { active: false, startTime: 0, duration: 2000, from: null
 let minimapCanvas, minimapCtx;
 let isPhotoMode = false;
 let currentFilter = 'none';
+let audioContext = null;
+let audioNodes = {};
+let isSoundEnabled = false;
 let cometData = {
     // 実際のハレー彗星のパラメータ（スケール調整済み）
     eccentricity: 0.967,  // 実際の離心率
@@ -1556,6 +1559,15 @@ function setupEventListeners() {
             }
         }
     });
+    
+    // Sound toggle
+    document.getElementById('enableSound').addEventListener('change', (e) => {
+        if (e.target.checked) {
+            initAudio();
+        } else {
+            stopAudio();
+        }
+    });
 }
 
 function updateParticles() {
@@ -2157,6 +2169,426 @@ function updateCameraPosition() {
     }
 }
 
+function initAudio() {
+    if (audioContext) return;
+    
+    try {
+        // @ts-ignore
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        isSoundEnabled = true;
+        
+        // Create audio nodes
+        createAmbientSound();
+        createSolarWind();
+        createPlanetaryResonance();
+        
+        showNotification('🔊 Sound enabled - Immersive space ambience');
+    } catch (error) {
+        console.error('Audio initialization failed:', error);
+        showNotification('Sound unavailable in this browser');
+        document.getElementById('enableSound').checked = false;
+    }
+}
+
+function stopAudio() {
+    if (!audioContext) return;
+    
+    // Stop all audio nodes
+    Object.values(audioNodes).forEach(node => {
+        if (node.stop) node.stop();
+        if (node.disconnect) node.disconnect();
+    });
+    
+    audioContext.close();
+    audioContext = null;
+    audioNodes = {};
+    isSoundEnabled = false;
+    
+    showNotification('🔇 Sound disabled');
+}
+
+function createAmbientSound() {
+    // Outer Wilds風の深い宇宙のアンビエント
+    const mainGain = audioContext.createGain();
+    mainGain.gain.value = 0.08;
+    
+    // Layer 1: 深い低音のパッド（宇宙の広大さ）
+    const bass1 = audioContext.createOscillator();
+    const bass2 = audioContext.createOscillator();
+    const bassGain = audioContext.createGain();
+    const bassFilter = audioContext.createBiquadFilter();
+    
+    bass1.frequency.value = 55; // A1
+    bass2.frequency.value = 82.41; // E2
+    bass1.type = 'triangle';
+    bass2.type = 'sine';
+    
+    bassFilter.type = 'lowpass';
+    bassFilter.frequency.value = 150;
+    bassFilter.Q.value = 2;
+    
+    bassGain.gain.value = 0.4;
+    
+    // Layer 2: 中音域の温かみのあるパッド
+    const mid1 = audioContext.createOscillator();
+    const mid2 = audioContext.createOscillator();
+    const midGain = audioContext.createGain();
+    const midFilter = audioContext.createBiquadFilter();
+    
+    mid1.frequency.value = 220; // A3
+    mid2.frequency.value = 329.63; // E4
+    mid1.type = 'sine';
+    mid2.type = 'sine';
+    
+    midFilter.type = 'bandpass';
+    midFilter.frequency.value = 400;
+    midFilter.Q.value = 0.5;
+    
+    midGain.gain.value = 0.2;
+    
+    // Layer 3: 高音域のきらめき（星の輝き）
+    const high1 = audioContext.createOscillator();
+    const highGain = audioContext.createGain();
+    const highFilter = audioContext.createBiquadFilter();
+    
+    high1.frequency.value = 880; // A5
+    high1.type = 'sine';
+    
+    highFilter.type = 'highpass';
+    highFilter.frequency.value = 800;
+    highFilter.Q.value = 0.5;
+    
+    highGain.gain.value = 0.05;
+    
+    // LFOでゆっくりとした変化を作る
+    const lfo1 = audioContext.createOscillator();
+    const lfo2 = audioContext.createOscillator();
+    const lfoGain1 = audioContext.createGain();
+    const lfoGain2 = audioContext.createGain();
+    
+    lfo1.frequency.value = 0.1; // 10秒周期
+    lfo2.frequency.value = 0.067; // 15秒周期
+    lfoGain1.gain.value = 5;
+    lfoGain2.gain.value = 0.1;
+    
+    // 接続
+    bass1.connect(bassFilter);
+    bass2.connect(bassFilter);
+    bassFilter.connect(bassGain);
+    bassGain.connect(mainGain);
+    
+    mid1.connect(midFilter);
+    mid2.connect(midFilter);
+    midFilter.connect(midGain);
+    midGain.connect(mainGain);
+    
+    high1.connect(highFilter);
+    highFilter.connect(highGain);
+    highGain.connect(mainGain);
+    
+    // LFO接続
+    lfo1.connect(lfoGain1);
+    lfoGain1.connect(bass1.frequency);
+    lfoGain1.connect(bass2.frequency);
+    
+    lfo2.connect(lfoGain2);
+    lfoGain2.connect(midGain.gain);
+    
+    mainGain.connect(audioContext.destination);
+    
+    // 開始
+    bass1.start();
+    bass2.start();
+    mid1.start();
+    mid2.start();
+    high1.start();
+    lfo1.start();
+    lfo2.start();
+    
+    audioNodes.ambient = { 
+        oscillators: [bass1, bass2, mid1, mid2, high1, lfo1, lfo2],
+        gains: [bassGain, midGain, highGain, mainGain],
+        filters: [bassFilter, midFilter, highFilter]
+    };
+}
+
+function createSolarWind() {
+    // より繊細な太陽風の音（Outer Wilds風）
+    const bufferSize = 2 * audioContext.sampleRate;
+    const noiseBuffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    
+    // ピンクノイズに近い特性を作る
+    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+    for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        b0 = 0.99886 * b0 + white * 0.0555179;
+        b1 = 0.99332 * b1 + white * 0.0750759;
+        b2 = 0.96900 * b2 + white * 0.1538520;
+        b3 = 0.86650 * b3 + white * 0.3104856;
+        b4 = 0.55000 * b4 + white * 0.5329522;
+        b5 = -0.7616 * b5 - white * 0.0168980;
+        output[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+        b6 = white * 0.115926;
+    }
+    
+    const whiteNoise = audioContext.createBufferSource();
+    whiteNoise.buffer = noiseBuffer;
+    whiteNoise.loop = true;
+    
+    // より複雑なフィルタリング
+    const preFilter = audioContext.createBiquadFilter();
+    preFilter.type = 'highpass';
+    preFilter.frequency.value = 100;
+    preFilter.Q.value = 0.5;
+    
+    const filter1 = audioContext.createBiquadFilter();
+    filter1.type = 'bandpass';
+    filter1.frequency.value = 400;
+    filter1.Q.value = 2;
+    
+    const filter2 = audioContext.createBiquadFilter();
+    filter2.type = 'lowpass';
+    filter2.frequency.value = 2000;
+    filter2.Q.value = 0.7;
+    
+    const gainNode = audioContext.createGain();
+    gainNode.gain.value = 0.015;
+    
+    // 複数のLFOで自然な変動を作る
+    const lfo1 = audioContext.createOscillator();
+    const lfo2 = audioContext.createOscillator();
+    const lfoGain1 = audioContext.createGain();
+    const lfoGain2 = audioContext.createGain();
+    
+    lfo1.frequency.value = 0.2; // ゆっくりとした変動
+    lfo2.frequency.value = 0.73; // 少し速い変動
+    lfoGain1.gain.value = 200;
+    lfoGain2.gain.value = 0.008;
+    
+    // 接続
+    whiteNoise.connect(preFilter);
+    preFilter.connect(filter1);
+    filter1.connect(filter2);
+    filter2.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    lfo1.connect(lfoGain1);
+    lfoGain1.connect(filter1.frequency);
+    
+    lfo2.connect(lfoGain2);
+    lfoGain2.connect(gainNode.gain);
+    
+    // 開始
+    whiteNoise.start();
+    lfo1.start();
+    lfo2.start();
+    
+    audioNodes.solarWind = { whiteNoise, filters: [preFilter, filter1, filter2], gainNode, lfos: [lfo1, lfo2] };
+}
+
+function createPlanetaryResonance() {
+    // Outer Wilds風の神秘的な惑星の響き
+    const mainGain = audioContext.createGain();
+    mainGain.gain.value = 0.04;
+    
+    // ペンタトニックスケールでより調和的な音を作る
+    const pentatonic = [
+        65.41,   // C2 - 深い基音
+        73.42,   // D2
+        82.41,   // E2
+        98.00,   // G2
+        110.00,  // A2
+        130.81,  // C3
+        164.81,  // E3
+        196.00   // G3
+    ];
+    
+    const oscillators = [];
+    const reverb = audioContext.createConvolver();
+    
+    // 簡易的なリバーブインパルスレスポンスを作成
+    const reverbTime = 4;
+    const sampleRate = audioContext.sampleRate;
+    const length = sampleRate * reverbTime;
+    const impulse = audioContext.createBuffer(2, length, sampleRate);
+    
+    for (let channel = 0; channel < 2; channel++) {
+        const channelData = impulse.getChannelData(channel);
+        for (let i = 0; i < length; i++) {
+            channelData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2);
+        }
+    }
+    reverb.buffer = impulse;
+    
+    const reverbGain = audioContext.createGain();
+    reverbGain.gain.value = 0.3;
+    
+    // 各音を作成
+    pentatonic.forEach((freq, index) => {
+        const osc = audioContext.createOscillator();
+        const oscGain = audioContext.createGain();
+        const filter = audioContext.createBiquadFilter();
+        
+        osc.frequency.value = freq;
+        osc.type = index < 3 ? 'triangle' : 'sine'; // 低音はtriangle、高音はsine
+        
+        filter.type = 'lowpass';
+        filter.frequency.value = freq * 4;
+        filter.Q.value = 2;
+        
+        // ランダムな遅延で開始し、ゆっくりフェードイン・アウト
+        const delay = Math.random() * 10;
+        const duration = 15 + Math.random() * 10;
+        const now = audioContext.currentTime;
+        
+        oscGain.gain.setValueAtTime(0, now);
+        oscGain.gain.linearRampToValueAtTime(0, now + delay);
+        oscGain.gain.linearRampToValueAtTime(0.3, now + delay + 3);
+        oscGain.gain.linearRampToValueAtTime(0.3, now + delay + duration);
+        oscGain.gain.linearRampToValueAtTime(0, now + delay + duration + 3);
+        
+        // 微細なピッチ変動を加える
+        const pitchLFO = audioContext.createOscillator();
+        const pitchLFOGain = audioContext.createGain();
+        pitchLFO.frequency.value = 0.1 + Math.random() * 0.1;
+        pitchLFOGain.gain.value = freq * 0.01; // 1%のピッチ変動
+        
+        pitchLFO.connect(pitchLFOGain);
+        pitchLFOGain.connect(osc.frequency);
+        
+        osc.connect(filter);
+        filter.connect(oscGain);
+        oscGain.connect(mainGain);
+        oscGain.connect(reverb);
+        
+        osc.start();
+        pitchLFO.start();
+        
+        // 音が終わったら再開するループ
+        setTimeout(() => {
+            if (isSoundEnabled) {
+                osc.stop();
+                pitchLFO.stop();
+                createPlanetaryResonanceNote(freq, index, mainGain, reverb);
+            }
+        }, (delay + duration + 6) * 1000);
+        
+        oscillators.push({ osc, gain: oscGain, lfo: pitchLFO });
+    });
+    
+    reverb.connect(reverbGain);
+    reverbGain.connect(mainGain);
+    mainGain.connect(audioContext.destination);
+    
+    audioNodes.resonance = { oscillators, mainGain, reverb, reverbGain };
+}
+
+function createPlanetaryResonanceNote(freq, index, mainGain, reverb) {
+    if (!isSoundEnabled || !audioContext) return;
+    
+    const osc = audioContext.createOscillator();
+    const oscGain = audioContext.createGain();
+    const filter = audioContext.createBiquadFilter();
+    
+    osc.frequency.value = freq;
+    osc.type = index < 3 ? 'triangle' : 'sine';
+    
+    filter.type = 'lowpass';
+    filter.frequency.value = freq * 4;
+    filter.Q.value = 2;
+    
+    const delay = Math.random() * 10;
+    const duration = 15 + Math.random() * 10;
+    const now = audioContext.currentTime;
+    
+    oscGain.gain.setValueAtTime(0, now);
+    oscGain.gain.linearRampToValueAtTime(0, now + delay);
+    oscGain.gain.linearRampToValueAtTime(0.3, now + delay + 3);
+    oscGain.gain.linearRampToValueAtTime(0.3, now + delay + duration);
+    oscGain.gain.linearRampToValueAtTime(0, now + delay + duration + 3);
+    
+    const pitchLFO = audioContext.createOscillator();
+    const pitchLFOGain = audioContext.createGain();
+    pitchLFO.frequency.value = 0.1 + Math.random() * 0.1;
+    pitchLFOGain.gain.value = freq * 0.01;
+    
+    pitchLFO.connect(pitchLFOGain);
+    pitchLFOGain.connect(osc.frequency);
+    
+    osc.connect(filter);
+    filter.connect(oscGain);
+    oscGain.connect(mainGain);
+    oscGain.connect(reverb);
+    
+    osc.start();
+    pitchLFO.start();
+    
+    setTimeout(() => {
+        if (isSoundEnabled) {
+            osc.stop();
+            pitchLFO.stop();
+            createPlanetaryResonanceNote(freq, index, mainGain, reverb);
+        }
+    }, (delay + duration + 6) * 1000);
+}
+
+function updateAudioEffects() {
+    if (!isSoundEnabled || !audioContext) return;
+    
+    // 太陽からの距離に基づいて太陽風の音を更新
+    if (audioNodes.solarWind) {
+        const distanceFromSun = camera.position.length();
+        const windIntensity = Math.max(0, 1 - distanceFromSun / 800) * 0.7;
+        audioNodes.solarWind.gainNode.gain.value = windIntensity * 0.02;
+        
+        // 距離に応じてフィルター周波数も変更
+        if (audioNodes.solarWind.filters && audioNodes.solarWind.filters[1]) {
+            audioNodes.solarWind.filters[1].frequency.value = 400 + windIntensity * 600;
+        }
+    }
+    
+    // 惑星の位置に基づいて共鳴音を更新
+    if (audioNodes.resonance && planets.length > 0) {
+        // カメラから最も近い惑星を見つける
+        let closestDistance = Infinity;
+        let closestPlanet = null;
+        
+        planets.forEach(planet => {
+            const distance = camera.position.distanceTo(planet.group.position);
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                closestPlanet = planet;
+            }
+        });
+        
+        // 近い惑星があれば、その影響で共鳴音を調整
+        if (closestDistance < 200) {
+            const proximity = 1 - (closestDistance / 200);
+            audioNodes.resonance.mainGain.gain.value = 0.04 + proximity * 0.02;
+            
+            // リバーブの量も調整
+            if (audioNodes.resonance.reverbGain) {
+                audioNodes.resonance.reverbGain.gain.value = 0.3 + proximity * 0.2;
+            }
+        } else {
+            audioNodes.resonance.mainGain.gain.value = 0.04;
+            if (audioNodes.resonance.reverbGain) {
+                audioNodes.resonance.reverbGain.gain.value = 0.3;
+            }
+        }
+    }
+    
+    // アンビエント音の微調整
+    if (audioNodes.ambient && audioNodes.ambient.gains) {
+        // 時間経過による緩やかな変化
+        const ambientModulation = Math.sin(time * 0.05) * 0.5 + 0.5;
+        if (audioNodes.ambient.gains[3]) { // mainGain
+            audioNodes.ambient.gains[3].gain.value = 0.08 + ambientModulation * 0.02;
+        }
+    }
+}
+
 function animate() {
     requestAnimationFrame(animate);
     
@@ -2219,6 +2651,7 @@ function animate() {
     updateCameraPosition();
     updatePlanetInfo();
     updateMinimap();
+    updateAudioEffects();
     
     if (cameraMode === 'free') {
         controls.update();
