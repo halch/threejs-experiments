@@ -988,6 +988,15 @@ function updateLabels() {
 }
 
 function setupEventListeners() {
+    // メニューのトグル機能
+    const menuToggle = document.getElementById('menu-toggle');
+    const infoPanel = document.getElementById('info');
+    
+    menuToggle.addEventListener('click', () => {
+        infoPanel.classList.toggle('collapsed');
+    });
+    
+    // 既存のイベントリスナー
     document.getElementById('showOrbits').addEventListener('change', (e) => {
         orbits.forEach(orbit => orbit.visible = e.target.checked);
     });
