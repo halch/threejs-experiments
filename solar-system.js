@@ -8,6 +8,20 @@ let orbits = [];
 let labels = [];
 let time = 0;
 let speedMultiplier = 1;
+let lastCameraPosition = new THREE.Vector3();
+
+// パーティクルの色を温度に基づいて取得する関数
+function getParticleColor(temperature) {
+    const color = new THREE.Color();
+    if (temperature < 0.3) {
+        color.setHSL(0.16, 0.8, 0.6); // 黄色〜オレンジ（明度を下げる）
+    } else if (temperature < 0.7) {
+        color.setHSL(0.08, 0.7, 0.5); // オレンジ〜赤
+    } else {
+        color.setHSL(0.0, 0.6, 0.4); // 暗い赤
+    }
+    return color;
+}
 
 const planetData = [
     { name: 'Mercury', radius: 3, distance: 40, color: 0x8c7c62, speed: 0.02, rotationSpeed: 0.01 },
@@ -119,12 +133,12 @@ function createSun() {
             varying vec3 vNormal;
             varying vec3 vPosition;
             
-            float noise(vec3 p) {
-                return sin(p.x * 10.0 + time) * sin(p.y * 10.0 + time * 0.8) * sin(p.z * 10.0 + time * 1.2);
+            float noise(vec3 p, float t) {
+                return sin(p.x * 10.0 + t) * sin(p.y * 10.0 + t * 0.8) * sin(p.z * 10.0 + t * 1.2);
             }
             
             void main() {
-                float n = noise(vPosition * 0.5 + time * 0.1);
+                float n = noise(vPosition * 0.5, time * 0.1);
                 float intensity = pow(0.7 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.0);
                 
                 vec3 color = mix(color1, color2, vUv.y + n * 0.2);
@@ -191,12 +205,12 @@ function createSun() {
             varying vec3 vNormal;
             varying vec3 vPosition;
             
-            float noise(vec3 p) {
-                return sin(p.x * 5.0 + time * 0.5) * sin(p.y * 5.0 + time * 0.3) * sin(p.z * 5.0 + time * 0.7);
+            float noise(vec3 p, float t) {
+                return sin(p.x * 5.0 + t * 0.5) * sin(p.y * 5.0 + t * 0.3) * sin(p.z * 5.0 + t * 0.7);
             }
             
             void main() {
-                float n = noise(vPosition * 0.1);
+                float n = noise(vPosition * 0.1, time);
                 float intensity = pow(0.6 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 1.2);
                 intensity += n * 0.2;
                 float pulse = sin(time * 1.5 + n * 10.0) * 0.1 + 0.9;
@@ -279,14 +293,7 @@ function createSunParticles() {
         
         // 温度による色のグラデーション（明度を抑える）
         const temp = Math.random();
-        const color = new THREE.Color();
-        if (temp < 0.3) {
-            color.setHSL(0.16, 0.8, 0.6); // 黄色〜オレンジ（明度を下げる）
-        } else if (temp < 0.7) {
-            color.setHSL(0.08, 0.7, 0.5); // オレンジ〜赤
-        } else {
-            color.setHSL(0.0, 0.6, 0.4); // 暗い赤
-        }
+        const color = getParticleColor(temp);
         colors[i * 3] = color.r;
         colors[i * 3 + 1] = color.g;
         colors[i * 3 + 2] = color.b;
@@ -543,6 +550,12 @@ function createLabel(text, object) {
 
 function updateLabels() {
     const showLabels = document.getElementById('showLabels').checked;
+    
+    // カメラが移動していない場合はスキップ
+    if (camera.position.equals(lastCameraPosition) && labels.length > 0) {
+        return;
+    }
+    lastCameraPosition.copy(camera.position);
     
     labels.forEach((label) => {
         if (showLabels) {
